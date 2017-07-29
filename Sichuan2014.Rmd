@@ -55,7 +55,7 @@ habitat <- gfgMB %>% dplyr::select(Site:Weather)
 habitat <- habitat %>% dplyr::filter(!is.na(Habitat)) # remove taxonomy rows
 ```
 
-```{r community bulid}
+```{r community build}
 
 community <- gfgMB %>% dplyr::select(starts_with("Cluster_"))
 # otuvector <- colnames(community)
