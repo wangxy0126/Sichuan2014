@@ -6,6 +6,18 @@ output: html_document
 Comparing two dataframes in R
 http://stackoverflow.com/questions/30655456/comparing-data-frames-in-r/30655765
 
+Set up github remote on github.com/dougwyu/Sichuan2014
+https://www.r-bloggers.com/rstudio-and-github/
+Open Terminal
+```{bash}
+git remote add origin https://github.com/dougwyu/Sichuan2014.git
+git config remote.origin.url git@github.com:dougwyu/Sichuan2014.git
+git pull -u origin master
+git push -u origin master
+```
+Pull and Push buttons are now active
+
+
 ```{r setup, test methods}
 # original filename:  Re2014_SiCMBC_Xiaoy0726.Rmd
 # 2libs_otu_WithTax4R_orig.txt is original file with all taxonomic assignments. Some of the OTUs still have non-Arthropoda in them, so need to go back and make taxonomic subsets. I added "Site" to top of first column and fixed misspelling of kindom to kingdom
