@@ -170,33 +170,6 @@ community.jmds <- metaMDS(community, distance = "jaccard", binary = TRUE, previo
 stressplot(community.jmds)
 ```
 
-```{r ordiellipse plot, }
-#### plot the communities
-levels(habitatN$Habitat)
-(sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
-with(habitat, ordisurf(community.jmds, sprichness, main="", cex=0.5))
-# with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("green"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("red"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
-
-```
-
 ```{r ordihull plot, }
 #### plot the communities
 levels(habitatN$Habitat)
@@ -220,6 +193,33 @@ with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
 
 with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
+
+```
+
+```{r ordiellipse plot, }
+#### plot the communities
+levels(habitatN$Habitat)
+(sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
+with(habitat, ordisurf(community.jmds, sprichness, main="", cex=0.5))
+# with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("green"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("red"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
 
 ```
