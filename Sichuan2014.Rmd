@@ -91,10 +91,10 @@ communityAll <- as.data.frame(communityAll) # then convert to df
 ```
 
 ```{r phyloseq filtering, eval=FALSE, include=FALSE}
-# no longer need this because we have used phyloseq to filter out small OTUs
-gsub("[[:punct:][:space:]]", "-", Sys.time()) #time will be show
-source("https://bioconductor.org/biocLite.R") # install phyloseq package
-biocLite("phyloseq")
+# no longer need to run this code chunk because we have already used phyloseq to filter out small OTUs
+# gsub("[[:punct:][:space:]]", "-", Sys.time()) #time will be shown
+# source("https://bioconductor.org/biocLite.R") # to install phyloseq package
+# biocLite("phyloseq")
 library("phyloseq"); packageVersion("phyloseq")
 library("data.table"); packageVersion("data.table")
 library("ggplot2"); packageVersion("ggplot2")
@@ -127,6 +127,8 @@ pCumSum + xlim(0, 300)
 pCumSum + xlim(0, 400)
 pCumSum + xlim(0, 600)
 pCumSum + xlim(0, 800)
+pCumSum + xlim(0, 2000)
+pCumSum + xlim(0, 20000)
 
 ## phyloseq-class experiment-level object
 ## otu_table()   OTU Table:         [ 3426 taxa and 34 samples ]
@@ -134,7 +136,8 @@ pCumSum + xlim(0, 800)
 ## tax_table()   Taxonomy Table:    [ 3426 taxa by 7 taxonomic ranks ]
 ## phy_tree()    Phylogenetic Tree: [ 3426 tips and 3424 internal nodes ]
 
-## from above result, we decide use 2 threshold to filter those small otus: 120 (>=120) and 40 (>=40)
+## from above result, we decide use 2 thresholds to filter those small otus: 120 (>=120) and 40 (>=40)
+## 40 gives us a table with 443 OTUs. This is the table that we are already reading. 
 commMBC.120 <- communityAll[ ,colSums(communityAll)>=120] ## 336 otus remain
 commMBC.120 <- commMBC.120[ rowSums(commMBC.120)>0,]
 rowSums(commMBC.120)
