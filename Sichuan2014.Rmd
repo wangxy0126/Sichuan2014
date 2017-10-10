@@ -24,7 +24,7 @@ Pull and Push buttons are now active
 ##### make sure that Source option is set to `Chunk output in Console` and do not select `Show Previews inline`
 # before import to R, delete first line and "#OTU ID" in the second line by hand. change names of habitats type: Ag->CL, B->BB, E->EC, C->JC, M->MF. add habitats type to original table. separate taxon info by "\t"
 
-#install.packages("iNEXT")
+# install.packages("iNEXT")
 # devtools::install_github("davidnipperess/PDcalc")
 # add packages that I will use
 library(tidyverse) # includes all data-formatting packages as one big package (e.g. dplyr, tidyr, ggplot2, readr, readxl, tibble, and others)
@@ -35,7 +35,7 @@ library(iNEXT)
 library(boral)
 library(mvabund)
 library(PDcalc)
-
+sessionInfo()
 ```
 
 ```{r load and format data}
@@ -57,7 +57,7 @@ gfgMB <- read_tsv(
 gfgMB <- tbl_df(gfgMB)
 
 
-#gfgMB <- gfgMB %>% filter(!Site %in% c("BB02", "JC04"))  # These two sites were identified below as being compositional outliers. JC04 (row 2) has very few species.  BB02 (row 38) also has few species (more than JC04) but they appear to be compositional outliers.
+# gfgMB <- gfgMB %>% filter(!Site %in% c("BB02", "JC04"))  # These two sites were identified below as being compositional outliers. JC04 (row 2) has very few species.  BB02 (row 38) also has few species (more than JC04) but they appear to be compositional outliers.
 
 ```
 
@@ -107,10 +107,6 @@ ggplot(tdt, aes(TotalCounts)) +
   geom_histogram() + 
   ggtitle("Histogram of Total Counts")
 
-tdt[(TotalCounts <= 0), .N]
-tdt[(TotalCounts <= 1), .N]
-tdt[(TotalCounts <= 2), .N]
-
 taxcumsum = tdt[, .N, by = TotalCounts]
 setkey(taxcumsum, TotalCounts)
 taxcumsum[, CumSum := cumsum(N)]
@@ -136,7 +132,7 @@ pCumSum + xlim(0, 20000)
 ## tax_table()   Taxonomy Table:    [ 3426 taxa by 7 taxonomic ranks ]
 ## phy_tree()    Phylogenetic Tree: [ 3426 tips and 3424 internal nodes ]
 
-## from above result, we decide use 2 thresholds to filter those small otus: 120 (>=120) and 40 (>=40)
+## from above result, we decide to use 2 thresholds to filter those small otus: 120 (>=120) and 40 (>=40)
 ## 40 gives us a table with 443 OTUs. This is the table that we are already reading. 
 commMBC.120 <- communityAll[ ,colSums(communityAll)>=120] ## 336 otus remain
 commMBC.120 <- commMBC.120[ rowSums(commMBC.120)>0,]
@@ -161,8 +157,14 @@ habitatN <- habitat[habitat$Site!="JC04",]
 
 # community <- community[-38,]
 # habitatN <- habitat[-38,]
+```
 
+```{r, eval=FALSE, include=FALSE}
+write.table(community, "GDM_community.txt", sep = "\t")
+write.table(habitatN, "GDM_environment.txt", sep = "\t")
+```
 
+```{r}
 ### do NMDS analysis to see basic patterns ####
 community.jmds <- metaMDS(community, distance = "jaccard", trymax = 40, binary=TRUE)
 community.jmds <- metaMDS(community, distance = "jaccard", binary = TRUE, previous.best = community.jmds)
@@ -326,7 +328,7 @@ breakaway_nof1(NF.fq.ns)
 ```{r breakaway binary,}
 ##################### use binary data ###################
 communityB <- community
-communityB[communityB>1] <- 1
+communityB[communityB>1] <- 1 # binary
 
 ########### NMDS #########
 community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary = TRUE)
@@ -340,22 +342,22 @@ levels(habitatN$Habitat)
 with(habitat, ordisurf(community.jmds, sprichness, main="", cex=0.5))
 # with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("green"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("green"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("red"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("red"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
 
 ######### vegan specpool ######
@@ -454,18 +456,20 @@ breakaway(NF.fq)
 ## The best estimate of total diversity is 485 with std error 1
 breakaway_nof1(NF.fq.ns)
 ## The best estimate of total diversity is 353 with std error 2
+```
 
+```{r iNEXT}
 ####### iNEXT ############
 ## example for abundance based data (data.frame)
-data(bird)
-# out2 <- iNEXT(bird, q=0, datatype="abundance")
-# ggiNEXT(out2)
-data(ant)
-str(ant)
-t <- round(seq(10, 500, length.out=20))
-out3 <- iNEXT(ant$h500m, q=1, datatype="incidence_freq", size=t, se=FALSE)
-out3$iNextEst
-ggiNEXT(out3)
+# data(bird)
+# # out2 <- iNEXT(bird, q=0, datatype="abundance")
+# # ggiNEXT(out2)
+# data(ant)
+# str(ant)
+# t <- round(seq(10, 500, length.out=20))
+# out3 <- iNEXT(ant$h500m, q=1, datatype="incidence_freq", size=t, se=FALSE)
+# out3$iNextEst
+# ggiNEXT(out3)
 
 
 rownames(communityB)
@@ -495,11 +499,12 @@ rownames(comm4inext) <- rname
 colnames(comm4inext) <- cname
 comm4inext
 
-outcomm0 <- iNEXT(comm4inext, q=0, datatype="incidence_freq")
+confnum=0.95 # set confidence here
+outcomm0 <- iNEXT(comm4inext, q=0, conf=confnum, datatype="incidence_freq")
 ggiNEXT(outcomm0, type=1)
 ggiNEXT(outcomm0, type=2)
 ggiNEXT(outcomm0, type=3)
-outcomm1 <- iNEXT(comm4inext, q=1, datatype="incidence_freq")
+outcomm1 <- iNEXT(comm4inext, q=1, conf=confnum, datatype="incidence_freq")
 ggiNEXT(outcomm1)
 outcomm0$DataInfo
 
@@ -637,4 +642,17 @@ plot(pressure)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+webpages to learn from 
+
+http://evomics.org/wp-content/uploads/2016/01/phyloseq-Lab-01-Answers.html
+http://rdp.cme.msu.edu/tutorials/RDPtutorial_CONTENTS.html
+http://rdp.cme.msu.edu/tutorials/stats/using_rdp_output_with_phyloseq.html#supervised
+http://rdp.cme.msu.edu/tutorials/stats/RDPtutorial_statistics.html
+https://github.com/hallamlab/mp_tutorial/wiki/Taxonomic-Analysis
+https://github.com/eheinzen/arsenal
+
+https://grunwaldlab.github.io/metacoder_documentation
+
 
