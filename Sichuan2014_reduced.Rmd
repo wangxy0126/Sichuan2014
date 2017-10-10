@@ -20,6 +20,8 @@ library(beanplot)
 library(PDcalc)
 library(ape)
 library(phylocurve)
+library(iNextPD)
+library(ade4)
 sessionInfo()
 ```
 
@@ -240,18 +242,15 @@ beanplot(specnumber(community)~habitatN$Habitat, col = c("grey", "white"))
 
 
 ```{r iNEXT}
-# # example for abundance based data (data.frame)
-# data(bird)
-# bird
-# out2 <- iNEXT(bird, q=0, datatype="abundance")
-# ggiNEXT(out2)
-# 
+# # example for incidence based data
 # data(ant)
 # str(ant)
-# t <- round(seq(10, 500, length.out=20))
-# t
-# out3 <- iNEXT(ant$h500m, q=1, datatype="incidence_freq", size=t, se=FALSE)
-# out3$iNextEst
+# t <- seq(1, 700, by=10)
+# out.inc <- iNEXT(ant, q=0, datatype="incidence_freq", size=t)
+# ggiNEXT(out.inc, type = 1)
+# out.inc$DataInfo
+# vignette ("Introduction", package="iNEXT")
+# http://chao.stat.nthu.edu.tw/wordpress/wp-content/uploads/software/iNEXT_UserGuide.pdf
 
 communityB <- community
 communityB[communityB>1] <- 1 # binary
@@ -262,15 +261,8 @@ EC <- communityB %>% filter(habitatN$Habitat %in% c("EC"))
 JC <- communityB %>% filter(habitatN$Habitat %in% c("JC"))
 MF <- communityB %>% filter(habitatN$Habitat %in% c("MF"))
 NF <- communityB %>% filter(habitatN$Habitat %in% c("NF"))
-BB_t <- t(BB)
-CL_t <- t(CL)
-EC_t <- t(EC)
-JC_t <- t(JC)
-MF_t <- t(MF)
-NF_t <- t(NF)
 
-rowSums(BB_t)
-rname <- rownames(BB_t)
+# rname <- rownames(BB_t)
 cname <- c("BB","CL","EC","JC","MF","NF")
 #    Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
 # BB     125 219.7378 30.74967 189.8889 25.55845 229.6528 153.2380 12.00890  9
@@ -280,26 +272,73 @@ cname <- c("BB","CL","EC","JC","MF","NF")
 # MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
 # NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
 
-comm4inext <- matrix(c(rowSums(BB_t), rowSums(CL_t), rowSums(EC_t), rowSums(JC_t), rowSums(MF_t), rowSums(NF_t)), ncol = 6)
-rownames(comm4inext) <- rname
+comm4inext <- matrix(c(colSums(BB), colSums(CL), colSums(EC), colSums(JC), colSums(MF), colSums(NF)), ncol = 6)
+# rownames(comm4inext) <- rname
 colnames(comm4inext) <- cname
 comm4inext <- rbind(c(nrow(BB), nrow(CL), nrow(EC), nrow(JC), nrow(MF), nrow(NF)), comm4inext)
 comm4inext
-
 confnum=0.95 # set confidence here
 outcomm0 <- iNEXT(comm4inext, q=0, conf=confnum, datatype="incidence_freq")
 # Hill numbers:  0 = sp richness, 1 = Shannon, 2 = inverse Simpson
-ggiNEXT(outcomm0, type=1) # sample-size-based rarefaction/extrapolation curve
-ggiNEXT(outcomm0, type=2) # sample completeness curve
-ggiNEXT(outcomm0, type=3) # coverage-based rarefaction/extrapolation curve
+outcomm0$DataInfo
+ChaoRichness(comm4inext, datatype="incidence_freq") # same as specpool results, so i trust that we have done this correctly
+ChaoShannon(comm4inext, datatype="incidence_freq")
 
 outcomm1 <- iNEXT(comm4inext, q=1, conf=confnum, datatype="incidence_freq")
 ggiNEXT(outcomm1, type=1)
-
 outcomm2 <- iNEXT(comm4inext, q=2, conf=confnum, datatype="incidence_freq")
 ggiNEXT(outcomm2, type=1)
 
+ggiNEXT(outcomm0, type=1) # sample-size-based rarefaction/extrapolation curve
+ggiNEXT(outcomm1, type=1) # sample-size-based rarefaction/extrapolation curve
+ggiNEXT(outcomm0, type=2) # sample completeness curve
+ggiNEXT(outcomm0, type=3) # coverage-based rarefaction/extrapolation curve
+
 outcomm0$DataInfo
+outcomm0$iNextEst
+outcomm0$AsyEst
+```
+
+```{r iNextPD test}
+data(bird)
+str(bird)
+bird.lab <- rownames(bird$abun)
+bird.phy <- ade4::newick2phylog(bird$tre)
+# plot(bird.phy)
+table.phylog(bird$abun, bird.phy, csize=4, f.phylog=0.7)
+outcommbird <- iNextPD(x=bird$abun, labels=bird.lab, phy=bird.phy, q=0, datatype="abundance")
+ggiNEXT(outcommbird, type=1, se=TRUE, facet.var="none", color.var="site", grey=FALSE)
+ggiNEXT(outcommbird, type=2, se=TRUE, facet.var="none", color.var="site", grey=FALSE)
+ggiNEXT(outcommbird, type=3, se=TRUE, facet.var="none", color.var="site", grey=FALSE)
+
+out <- iNextPD(bird$abun, bird.lab, bird.phy, q=c(0, 1, 2), datatype="abundance", endpoint=400)
+
+# Sample‐size‐based R/E curves, separating by "site""
+ggiNEXT(out, type=1, facet.var="site")
+# Sample‐size‐based R/E curves, separating by "order"
+ggiNEXT(out, type=1, facet.var="order")
+# display black‐white theme
+ggiNEXT(out, type=1, facet.var="order", grey=TRUE)
+
+
+# incidence data
+bird_inci_N <- bird[["inci"]][["North.site"]]
+bird_tree <- bird[["tre"]]
+bird_tree
+out.inc <- iNextPD(bird$inci, bird.lab, bird.phy, 
+                   q=0, datatype="incidence_raw", 
+                   endpoint = 25, se=TRUE)
+
+# Sample‐size‐based R/E curves
+ggiNEXT(out.inc, type=1, color.var="site") + 
+  theme_bw(base_size = 18) + 
+  theme(legend.position="none")
+
+ggiNEXT(out.inc, type=2, color.var="site") +
+  xlim(c(5,25)) + ylim(c(0.7,1)) +
+  theme_bw(base_size = 18) + 
+  theme(legend.position="none")
+
 ```
 
 
@@ -317,10 +356,10 @@ par(mfrow = c(2,2))
 plot(comm.fit.nb3) ## Plots used in residual analysis, 
 par(mfrow = c(1,1))
 
-par(mfrow = c(1,2))
-lvsplot(comm.fit.nb3, biplot=FALSE)
-plot(lv2 ~ lv1, data = latvarscomm.fit.nb3)
-par(mfrow = c(1,1))
+# par(mfrow = c(1,2))
+lvsplot(comm.fit.nb3, biplot=FALSE, col=as.numeric(habitatN$Habitat))
+# plot(lv2 ~ lv1, data = latvarscomm.fit.nb3, col=as.numeric(habitatN$Habitat))
+# par(mfrow = c(1,1))
 
 commB.fit.nb3 <- boral(communityB, family = "negative.binomial", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control)
 summary(commB.fit.nb3)
@@ -380,6 +419,32 @@ knitr::opts_chunk$set(echo = TRUE)
 
 after this, do mvabund and betapart
 
+```{r}
+library(boral)
+
+## Not run: 
+## NOTE: The values below MUST NOT be used in a real application;
+## they are only used here to make the examples run quick!!!
+example.mcmc.control <- list(n.burnin = 10, n.iteration = 100, 
+     n.thin = 1)
+
+library(mvabund) ## Load a dataset from the mvabund package
+data(spider)
+y <- spider$abun
+n <- nrow(y); p <- ncol(y); 
+
+X <- scale(spider$x)
+spider.fit.nb <- boral(y, X = X, family = "negative.binomial", 
+	num.lv = 2, mcmc.control = example.mcmc.control)
+
+
+## Do separate line plots for all the coefficients of X
+par(mfrow=c(2,3), mar = c(5,6,1,1))
+sapply(colnames(spider.fit.nb$X), coefsplot, 
+	spider.fit.nb)
+
+## End(Not run)
+```
 
 
 ```{r PD calc} 
