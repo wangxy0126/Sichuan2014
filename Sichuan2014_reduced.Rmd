@@ -10,18 +10,17 @@ Make sure that Source option is set to `Chunk output in Console` and do not sele
 ```{r setup, packages}
 library(tidyverse) # includes all data-formatting packages as one big package (dplyr, tidyr, ggplot2, readr, readxl, tibble, and others)
 library(vegan)
+library(beanplot)
 library(car)
-library(breakaway)
 library(iNEXT)
+library(iNextPD)
+library(ade4)
 library(boral)
 library(mvabund)
-library(PDcalc)
-library(beanplot)
+
 library(PDcalc)
 library(ape)
 library(phylocurve)
-library(iNextPD)
-library(ade4)
 sessionInfo()
 ```
 
@@ -322,9 +321,9 @@ ggiNEXT(out, type=1, facet.var="order", grey=TRUE)
 
 
 # incidence data
-bird_inci_N <- bird[["inci"]][["North.site"]]
-bird_tree <- bird[["tre"]]
-bird_tree
+
+bird.lab <- rownames(bird$abun)  # OTU names
+bird.phy <- ade4::newick2phylog(bird$tre) # convert newick tree to phylog object
 out.inc <- iNextPD(bird$inci, bird.lab, bird.phy, 
                    q=0, datatype="incidence_raw", 
                    endpoint = 25, se=TRUE)
