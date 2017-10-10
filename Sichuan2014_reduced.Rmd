@@ -3,31 +3,12 @@ title: "Re2014Sichuan-MBC"
 output: html_document
 ---
 
-Comparing two dataframes in R
-http://stackoverflow.com/questions/30655456/comparing-data-frames-in-r/30655765
+I have set up github repo on github.com/dougwyu/Sichuan2014
+Original filename:  Re2014_SiCMBC_Xiaoy0726.Rmd
+Make sure that Source option is set to `Chunk output in Console` and do not select `Show Previews inline`
 
-Set up github remote on github.com/dougwyu/Sichuan2014
-https://www.r-bloggers.com/rstudio-and-github/
-Open Terminal
-```{bash}
-git remote add origin https://github.com/dougwyu/Sichuan2014.git
-git config remote.origin.url git@github.com:dougwyu/Sichuan2014.git
-git pull -u origin master
-git push -u origin master
-```
-Pull and Push buttons are now active
-
-
-```{r setup, test methods}
-# original filename:  Re2014_SiCMBC_Xiaoy0726.Rmd
-# 2libs_otu_WithTax4R_orig.txt is original file with all taxonomic assignments. Some of the OTUs still have non-Arthropoda in them, so need to go back and make taxonomic subsets. I added "Site" to top of first column and fixed misspelling of kindom to kingdom
-##### make sure that Source option is set to `Chunk output in Console` and do not select `Show Previews inline`
-# before import to R, delete first line and "#OTU ID" in the second line by hand. change names of habitats type: Ag->CL, B->BB, E->EC, C->JC, M->MF. add habitats type to original table. separate taxon info by "\t"
-
-#install.packages("iNEXT")
-# devtools::install_github("davidnipperess/PDcalc")
-# add packages that I will use
-library(tidyverse) # includes all data-formatting packages as one big package (e.g. dplyr, tidyr, ggplot2, readr, readxl, tibble, and others)
+```{r setup, packages}
+library(tidyverse) # includes all data-formatting packages as one big package (dplyr, tidyr, ggplot2, readr, readxl, tibble, and others)
 library(vegan)
 library(car)
 library(breakaway)
@@ -35,13 +16,19 @@ library(iNEXT)
 library(boral)
 library(mvabund)
 library(PDcalc)
+library(beanplot)
+library(PDcalc)
+library(ape)
+library(phylocurve)
 sessionInfo()
 ```
+
 
 ```{r load and format data}
 # help(read_tsv)
 # this inputfile contains taxononomic assignments in the lower rows
 # command from readr package, and you tell the command how to format the columns
+
 inputfile <- "./data/Sichuan2014_MBC_OTU443.txt" # post phyloseq filtering and filtering for trees
 
 gfgMB <- read_tsv(
@@ -54,11 +41,8 @@ gfgMB <- read_tsv(
     Weather = col_integer()
     )
 )
+
 gfgMB <- tbl_df(gfgMB)
-
-
-# gfgMB <- gfgMB %>% filter(!Site %in% c("BB02", "JC04"))  # These two sites were identified below as being compositional outliers. JC04 (row 2) has very few species.  BB02 (row 38) also has few species (more than JC04) but they appear to be compositional outliers.
-
 ```
 
 ```{r environment dataset}
@@ -68,7 +52,6 @@ habitat <- habitat %>% dplyr::filter(!is.na(Habitat)) # remove taxonomy rows
 ```
 
 ```{r community build}
-
 community <- gfgMB %>% dplyr::select(starts_with("Cluster_"))
 # otuvector <- colnames(community)
 community_t <- t(community)
@@ -87,9 +70,9 @@ communityAll <- communityAll[-1,]
 # http://stackoverflow.com/questions/2288485/how-to-convert-a-data-frame-column-to-numeric-type
 communityAll <- sapply(communityAll, function(x) as.numeric(as.character(x))) # sapply applies a function to each column, and the function is:  function(x) as.numeric(as.character(x)).  Cannot convert factors to numeric directly. first convert to character, then to numeric
 communityAll <- as.data.frame(communityAll) # then convert to df
-
 ```
 
+We used this code chunk to filter out small OTUs, leaving behind 443 OTUs. This is the dataset that we are importing as Sichuan2014_MBC_OTU443.txt.
 ```{r phyloseq filtering, eval=FALSE, include=FALSE}
 # no longer need to run this code chunk because we have already used phyloseq to filter out small OTUs
 # gsub("[[:punct:][:space:]]", "-", Sys.time()) #time will be shown
@@ -103,7 +86,7 @@ TotalCounts <- c(colSums(communityAll))
 
 tdt = data.table(colnames(communityAll),TotalCounts = colSums(communityAll),OTU = colnames(communityAll))
 
-ggplot(tdt, aes(TotalCounts)) + 
+ggplot(tdt, aes(TotalCounts)) +  # histogram
   geom_histogram() + 
   ggtitle("Histogram of Total Counts")
 
@@ -147,24 +130,24 @@ colnames(commMBC.40)
 
 ```
 
-```{r NMDS, }
-community <- communityAll
-rownames(community)
-#community <- commMBC.120
-#community <- commMBC.40
-community <- community[habitat$Site!="JC04",]
-habitatN <- habitat[habitat$Site!="JC04",]
 
-# community <- community[-38,]
-# habitatN <- habitat[-38,]
+```{r filter out low-read sites, }
+rowSums(communityAll) # Three sites with very few reads ("JC04", "CL02", "BB02")
+
+community <- communityAll
+habitat$rowsums <- rowSums(community)
+# these three sites have very few reads, so i'm removing them:  2, 110, and 380 reads
+community <- community %>% filter(!(habitat$Site %in% c("JC04", "CL02", "BB02")))
+habitatN <- habitat %>% filter(!(habitat$Site %in% c("JC04", "CL02", "BB02")))
+rowSums(community)
 ```
 
-```{r, eval=FALSE, include=FALSE}
+```{r save datasets for GDM, eval=FALSE, include=FALSE}
 write.table(community, "GDM_community.txt", sep = "\t")
 write.table(habitatN, "GDM_environment.txt", sep = "\t")
 ```
 
-```{r}
+```{r NMDS}
 ### do NMDS analysis to see basic patterns ####
 community.jmds <- metaMDS(community, distance = "jaccard", trymax = 40, binary=TRUE)
 community.jmds <- metaMDS(community, distance = "jaccard", binary = TRUE, previous.best = community.jmds)
@@ -176,6 +159,7 @@ stressplot(community.jmds)
 #### plot the communities
 levels(habitatN$Habitat)
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
+
 with(habitat, ordisurf(community.jmds, sprichness, main="", cex=0.5))
 # with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
 
@@ -191,7 +175,7 @@ with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("
 with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
 
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("lightgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
 
 with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
@@ -199,7 +183,8 @@ with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("
 
 ```
 
-```{r ordiellipse plot, }
+Ordiellipse plots cover the 95% CIs for the species points, not the site points
+```{r ordiellipse plot, eval=FALSE, include=FALSE}
 #### plot the communities
 levels(habitatN$Habitat)
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
@@ -226,8 +211,8 @@ with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=
 
 ```
 
-
-```{r ordiplots}
+If we want to identify individual points, we can use these commands. but not necessary now.
+```{r ordiplots, eval=FALSE, include=FALSE}
 # These commands are ways to identify points
 orditorp(community.jmds, labels = habitatN$Site, dis="sites", pcol = "gray")
 ordipointlabel(community.jmds, dis="sites")
@@ -236,368 +221,176 @@ ordipointlabel(community.jmds, dis="sites")
 #identify(p1, "sites") # interactive method to identify sites by row number. Click on the points that you want to identify. When you have clicked on all the points, click on the Finish button at top right of Plot window. 
 ```
 
-Across the various taxonomic subsets, sites 2 (BB02) and 38 (JC04) remain compositional outliers. In the community_insecta_nosngltons dataset, there are only 3 OTUs in site 2 and 1 OTU in site 38. There are other sites with low numbers of species (e.g. 27 & 28), but they are not compositional outliers. So we should remove these sites from the community and habitat datasets, starting right at the beginning of the analysis. 
-
-
-```{r specpool,}
-##########
-
-############### alpha diversity: breakaway, specpool(vegan), iNEXT ######
+```{r specpool, }
 ######### otu table with original reads number ######
-###### vegan specpool ###
-# attach(habitatN) # bad practice
 (pool1 <- specpool(community, habitatN$Habitat))
-
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#BB     127 228.2500 32.52787 194.5000 25.79826 236.7222 156.1907 12.40703 10
-#CL     212 338.6943 36.31374 299.1875 26.60805 354.4292 249.7093 12.68406 16
-#EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
-#JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
-#MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-#NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
-#op <- par(mfrow = c(1,2))
-boxplot(specnumber(community)~habitatN$Habitat)
-boxplot(specnumber(community)/specpool2vect(pool1)~habitatN$Habitat)
-poolaccum(community)
-estaccumR(community)
 ```
 
-```{r breakaway quantitative, eval=FALSE, include=FALSE}
-## as breakaway required, make a frequency table for each habitat
-# DY:  fix this
-BB <- community[1:10,]
-CL <- community[11:26,]
-EC <- community[27:34,]
-JC <- community[35:45,]
-MF <- community[46:54,]
-NF <- community[55:69,]
+   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
+BB     125 219.7378 30.74967 189.8889 25.55845 229.6528 153.2380 12.00890  9
+CL     210 333.4333 35.52432 295.8667 26.84043 349.8476 247.2540 12.74553 15
+EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
+JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
+MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
+NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
 
-BB <- BB[,colSums(BB)>0] # keep those observed otu 
-CL <- CL[,colSums(CL)>0]
-EC <- EC[,colSums(EC)>0]
-JC <- JC[,colSums(JC)>0]
-MF <- MF[,colSums(MF)>0]
-NF <- NF[,colSums(NF)>0]
-
-BB.fq <- matrix(c(colSums(BB),colSums(BB)), ncol = 2)
-#BB.fq <- BB.fq[sort(BB.fq[1,]),]
-BB.fq <- BB.fq[order(rowSums(BB.fq)),]
-BB.fq.ns <- BB.fq[rowSums(BB.fq)>2,]
-###### breakaway ###########
-breakaway(BB.fq)
-chao1(BB.fq)
-chao1_bc(BB.fq)
-chao_bunge(BB.fq)
-wlrm_transformed(BB.fq)
-wlrm_untransformed(BB.fq)
-breakaway_nof1(BB.fq.ns)
-#
-CL.fq <- matrix(c(colSums(CL),colSums(CL)),ncol = 2)
-CL.fq <- CL.fq[order(rowSums(CL.fq)),]
-CL.fq.ns <- CL.fq[rowSums(CL.fq)>2,]
-#CL.fq.ns
-breakaway(CL.fq)
-breakaway_nof1(CL.fq.ns)
-#
-EC.fq <- matrix(c(colSums(EC),colSums(EC)),ncol = 2)
-EC.fq <- EC.fq[order(rowSums(EC.fq)),]
-EC.fq.ns <- EC.fq[rowSums(EC.fq)>2,]
-breakaway(EC.fq)
-breakaway_nof1(EC.fq.ns)
-#
-JC.fq <- matrix(c(colSums(JC),colSums(JC)),ncol = 2)
-JC.fq <- JC.fq[order(rowSums(JC.fq)),]
-JC.fq.ns <- JC.fq[rowSums(JC.fq)>2,]
-breakaway(JC.fq)
-breakaway_nof1(JC.fq.ns)
-#
-MF.fq <- matrix(c(colSums(MF),colSums(MF)),ncol = 2)
-MF.fq <- MF.fq[order(rowSums(MF.fq)),]
-MF.fq.ns <- MF.fq[rowSums(MF.fq)>2,]
-breakaway(MF.fq)
-breakaway_nof1(MF.fq.ns)
-#
-NF.fq <- matrix(c(colSums(NF),colSums(NF)),ncol = 2)
-NF.fq <- NF.fq[order(rowSums(NF.fq)),]
-NF.fq.ns <- NF.fq[rowSums(NF.fq)>2,]
-breakaway(NF.fq)
-breakaway_nof1(NF.fq.ns)
-
+```{r}
+beanplot(specnumber(community)~habitatN$Habitat, col = c("grey", "white"))
 ```
 
-```{r breakaway binary,}
-##################### use binary data ###################
-communityB <- community
-communityB[communityB>1] <- 1 # binary
-
-########### NMDS #########
-community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary = TRUE)
-community.jmds <- metaMDS(communityB, distance = "jaccard", binary = TRUE, previous.best = community.jmds)
-
-stressplot(community.jmds)
-
-#### plot the communities
-levels(habitatN$Habitat)
-(sprichness <- specnumber(communityB, MARGIN = 1)) # number of species per site
-with(habitat, ordisurf(community.jmds, sprichness, main="", cex=0.5))
-# with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
-
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
-
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("green"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
-
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("red"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
-
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
-
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
-
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
-
-######### vegan specpool ######
-pool2 <- specpool(communityB, habitatN$Habitat)
-pool2
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#BB     127 228.2500 32.52787 194.5000 25.79826 236.7222 156.1907 12.40703 10
-#CL     212 338.6943 36.31374 299.1875 26.60805 354.4292 249.7093 12.68406 16
-#EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
-#JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
-#MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-#NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
-#op <- par(mfrow = c(1,2))
-boxplot(specnumber(communityB)~Habitat)
-boxplot(specnumber(communityB)/specpool2vect(pool2)~Habitat)
-poolaccum(communityB)
-estaccumR(communityB)
-## as breakaway required, make a frequency table for each habitat
-BB <- communityB[1:10,]
-CL <- communityB[11:26,]
-EC <- communityB[27:34,]
-JC <- communityB[35:45,]
-MF <- communityB[46:54,]
-NF <- communityB[55:69,]
-
-BB <- BB[,colSums(BB)>0] # keep those observed otu 
-CL <- CL[,colSums(CL)>0]
-EC <- EC[,colSums(EC)>0]
-JC <- JC[,colSums(JC)>0]
-MF <- MF[,colSums(MF)>0]
-NF <- NF[,colSums(NF)>0]
-
-BB.fq <- matrix(c(colSums(BB),colSums(BB)),ncol = 2)
-#BB.fq <- BB.fq[sort(BB.fq[1,]),]
-BB.fq <- BB.fq[order(rowSums(BB.fq)),]
-BB.fq.ns <- BB.fq[rowSums(BB.fq)>2,]
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#BB     127 228.2500 32.52787 194.5000 25.79826 236.7222 156.1907 12.40703 10
-breakaway(BB.fq)
-## The best estimate of total diversity is 248 with std error 1
-chao1(BB.fq)
-chao1_bc(BB.fq)
-chao_bunge(BB.fq)
-wlrm_transformed(BB.fq)
-wlrm_untransformed(BB.fq)
-breakaway_nof1(BB.fq.ns)
-## The best estimate of total diversity is 176 with std error 2
-####
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#CL     212 338.6943 36.31374 299.1875 26.60805 354.4292 249.7093 12.68406 16
-CL.fq <- matrix(c(colSums(CL),colSums(CL)),ncol = 2)
-CL.fq <- CL.fq[order(rowSums(CL.fq)),]
-CL.fq.ns <- CL.fq[rowSums(CL.fq)>2,]
-#CL.fq.ns
-breakaway(CL.fq)
-#The best estimate of total diversity is 679 with std error 1 
-breakaway_nof1(CL.fq.ns)
-## The best estimate of total diversity is 589 with std error 2
-####
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
-EC.fq <- matrix(c(colSums(EC),colSums(EC)),ncol = 2)
-EC.fq <- EC.fq[order(rowSums(EC.fq)),]
-EC.fq.ns <- EC.fq[rowSums(EC.fq)>2,]
-breakaway(EC.fq)
-## The best estimate of total diversity is 146 with std error 1
-breakaway_nof1(EC.fq.ns)
-## The best estimate of total diversity is 98 with std error 2
-###
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
-JC.fq <- matrix(c(colSums(JC),colSums(JC)),ncol = 2)
-JC.fq <- JC.fq[order(rowSums(JC.fq)),]
-JC.fq.ns <- JC.fq[rowSums(JC.fq)>2,]
-breakaway(JC.fq)
-## The best estimate of total diversity is 202 with std error 1
-breakaway_nof1(JC.fq.ns)
-## The best estimate of total diversity is 136 with std error 3
-### 
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-MF.fq <- matrix(c(colSums(MF),colSums(MF)),ncol = 2)
-MF.fq <- MF.fq[order(rowSums(MF.fq)),]
-MF.fq.ns <- MF.fq[rowSums(MF.fq)>2,]
-breakaway(MF.fq)
-## The best estimate of total diversity is 242 with std error 1
-breakaway_nof1(MF.fq.ns) 
-## The best estimate of total diversity is 153 with std error 2
-###
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
-NF.fq <- matrix(c(colSums(NF),colSums(NF)),ncol = 2)
-NF.fq <- NF.fq[order(rowSums(NF.fq)),]
-NF.fq.ns <- NF.fq[rowSums(NF.fq)>2,]
-breakaway(NF.fq)
-## The best estimate of total diversity is 485 with std error 1
-breakaway_nof1(NF.fq.ns)
-## The best estimate of total diversity is 353 with std error 2
-```
 
 ```{r iNEXT}
-####### iNEXT ############
-## example for abundance based data (data.frame)
+# # example for abundance based data (data.frame)
 # data(bird)
-# # out2 <- iNEXT(bird, q=0, datatype="abundance")
-# # ggiNEXT(out2)
+# bird
+# out2 <- iNEXT(bird, q=0, datatype="abundance")
+# ggiNEXT(out2)
+# 
 # data(ant)
 # str(ant)
 # t <- round(seq(10, 500, length.out=20))
+# t
 # out3 <- iNEXT(ant$h500m, q=1, datatype="incidence_freq", size=t, se=FALSE)
 # out3$iNextEst
-# ggiNEXT(out3)
 
-
-rownames(communityB)
-communityB_t <- t(communityB)
-colnames(communityB_t)
-rownames(communityB_t)
-BB_t <- communityB_t[,1:10]
-CL_t <- communityB_t[,11:26]
-EC_t <- communityB_t[,27:34]
-JC_t <- communityB_t[,35:45]
-MF_t <- communityB_t[,46:54]
-NF_t <- communityB_t[,55:69]
+communityB <- community
+communityB[communityB>1] <- 1 # binary
+rownames(communityB) # 67 rows
+BB <- communityB %>% filter(habitatN$Habitat %in% c("BB"))
+CL <- communityB %>% filter(habitatN$Habitat %in% c("CL"))
+EC <- communityB %>% filter(habitatN$Habitat %in% c("EC"))
+JC <- communityB %>% filter(habitatN$Habitat %in% c("JC"))
+MF <- communityB %>% filter(habitatN$Habitat %in% c("MF"))
+NF <- communityB %>% filter(habitatN$Habitat %in% c("NF"))
+BB_t <- t(BB)
+CL_t <- t(CL)
+EC_t <- t(EC)
+JC_t <- t(JC)
+MF_t <- t(MF)
+NF_t <- t(NF)
 
 rowSums(BB_t)
 rname <- rownames(BB_t)
 cname <- c("BB","CL","EC","JC","MF","NF")
-#   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-#BB     127 228.2500 32.52787 194.5000 25.79826 236.7222 156.1907 12.40703 10
-#CL     212 338.6943 36.31374 299.1875 26.60805 354.4292 249.7093 12.68406 16
-#EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
-#JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
-#MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-#NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
+#    Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
+# BB     125 219.7378 30.74967 189.8889 25.55845 229.6528 153.2380 12.00890  9
+# CL     210 333.4333 35.52432 295.8667 26.84043 349.8476 247.2540 12.74553 15
+# EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
+# JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
+# MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
+# NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
+
 comm4inext <- matrix(c(rowSums(BB_t), rowSums(CL_t), rowSums(EC_t), rowSums(JC_t), rowSums(MF_t), rowSums(NF_t)), ncol = 6)
-comm4inext <- rbind(c(10, 16, 8, 11, 9, 15), comm4inext)
 rownames(comm4inext) <- rname
 colnames(comm4inext) <- cname
+comm4inext <- rbind(c(nrow(BB), nrow(CL), nrow(EC), nrow(JC), nrow(MF), nrow(NF)), comm4inext)
 comm4inext
 
 confnum=0.95 # set confidence here
 outcomm0 <- iNEXT(comm4inext, q=0, conf=confnum, datatype="incidence_freq")
-ggiNEXT(outcomm0, type=1)
-ggiNEXT(outcomm0, type=2)
-ggiNEXT(outcomm0, type=3)
-outcomm1 <- iNEXT(comm4inext, q=1, conf=confnum, datatype="incidence_freq")
-ggiNEXT(outcomm1)
-outcomm0$DataInfo
+# Hill numbers:  0 = sp richness, 1 = Shannon, 2 = inverse Simpson
+ggiNEXT(outcomm0, type=1) # sample-size-based rarefaction/extrapolation curve
+ggiNEXT(outcomm0, type=2) # sample completeness curve
+ggiNEXT(outcomm0, type=3) # coverage-based rarefaction/extrapolation curve
 
-data(ciliates) # raw incidence data
-ciliates[[1]]
-str(ciliates)
+outcomm1 <- iNEXT(comm4inext, q=1, conf=confnum, datatype="incidence_freq")
+ggiNEXT(outcomm1, type=1)
+
+outcomm2 <- iNEXT(comm4inext, q=2, conf=confnum, datatype="incidence_freq")
+ggiNEXT(outcomm2, type=1)
+
+outcomm0$DataInfo
 ```
 
-```{r beta diversity}
-############## Boral #######
-#mcmc.control <- list(n.burnin = 100, n.iteration = 1000, n.thin = 10)
+
+```{r boral, cache=TRUE}
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
-mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
 
 colnames(community) <- c(1:443)
 colnames(communityB) <- c(1:443)
 
-#### negative binomial 
-#comm.fit.nb3 <- boral(community, family = "negative.binomial", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control) ## failed
+#### Negative binomial 
+comm.fit.nb3 <- boral(community, family = "negative.binomial", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control) 
+latvarscomm.fit.nb3 <- comm.fit.nb3[["lv.median"]]
+summary(comm.fit.nb3)
+par(mfrow = c(2,2))
+plot(comm.fit.nb3) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+
+par(mfrow = c(1,2))
+lvsplot(comm.fit.nb3, biplot=FALSE)
+plot(lv2 ~ lv1, data = latvarscomm.fit.nb3)
+par(mfrow = c(1,1))
+
 commB.fit.nb3 <- boral(communityB, family = "negative.binomial", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control)
-
-#### possion
-comm.fit.pb3 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control)
-comm.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control4)
-
-summary(comm.fit.pb3.4)
+summary(commB.fit.nb3)
 par(mfrow = c(2,2))
-plot(comm.fit.pb3.4) ## Plots used in residual analysis, 
-#dev.off()
+plot(commB.fit.nb3) ## Plots used in residual analysis, 
 par(mfrow = c(1,1))
-lvsplot(comm.fit.pb3.4)
+lvsplot(commB.fit.nb3, biplot=FALSE)
 
-comm.fit.pb2.4 <- boral(communityB, family = "poisson", num.lv = 2, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control4)
-
-
-summary(comm.fit.pb2.4)
+#### Poisson
+commB.fit.pb3 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control)
+summary(commB.fit.pb3)
 par(mfrow = c(2,2))
-plot(comm.fit.pb2.4) ## Plots used in residual analysis, 
-#dev.off()
+plot(commB.fit.pb3) ## Plots used in residual analysis, 
 par(mfrow = c(1,1))
-lvsplot(comm.fit.pb2.4)
+lvsplot(commB.fit.pb3, biplot=FALSE)
+```
 
-########################################
-###### tabasco ########################
+```{r boral high iterations}
+mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
+
+commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control4)  # high iterations
+summary(commB.fit.pb3.4)
+par(mfrow = c(2,2))
+plot(commB.fit.pb3.4) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+lvsplot(commB.fit.pb3.4)
+```
+
+
+```{r tabasco}
 vegemite(communityB)
 tabasco(communityB)
-x0 <- colSums(communityB[1:10,])
-x1 <- colSums(communityB[11:26,])
-x2 <- colSums(communityB[27:34,])
-x3 <- colSums(communityB[35:45,])
-x4 <- colSums(communityB[46:54,])
-x5 <- colSums(communityB[55:69,])
 
-habSum <- matrix(c(x0,x1,x2,x3,x4,x5),ncol = 443)
+x0 <- communityB %>% filter(habitatN$Habitat %in% c("BB")) %>% colSums()
+x1 <- communityB %>% filter(habitatN$Habitat %in% c("CL")) %>% colSums()
+x2 <- communityB %>% filter(habitatN$Habitat %in% c("EC")) %>% colSums()
+x3 <- communityB %>% filter(habitatN$Habitat %in% c("JC")) %>% colSums()
+x4 <- communityB %>% filter(habitatN$Habitat %in% c("MF")) %>% colSums()
+x5 <- communityB %>% filter(habitatN$Habitat %in% c("NF")) %>% colSums()
+
+habSum <- matrix(c(x0,x1,x2,x3,x4,x5), ncol = 443)
+
 colnames(habSum)
 rownames(habSum)
 row <- c("BB","CL","EC","JC","MF","NF")
 col <- c(1:443)
 dimnames(habSum) <- list(row,col)
 
-vegemite(habSum,scale = "Hill")
+vegemite(habSum, scale = "Hill")
 tabasco(habSum)
-
-habSum1 <- matrix(c(x0,x2,x3,x4,x5),ncol = 443)
-row <- c("BB","EC","JC","MF","NF")
-col <- c(1:443)
-dimnames(habSum1) <- list(row,col)
-
-habSum1 <- habSum1[,colSums(habSum1)]
-
-vegemite(habSum1,scale = "Hill")
-tabasco(habSum1)
-
-###### ####
 
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+
+
+after this, do mvabund and betapart
+
+
+
 ```{r PD calc} 
 
 ########### phylocurve ##############
-
-library(PDcalc)
-library(ape)
 
 otu_table <- communityB
 tree <- read.tree("./data/reIDotu443_outgroupOnychophora_tree.newick")
 
 pd <- phylodiv(otu_table, tree)
 pd <- phylocurve(otu_table, tree, stepm = 10, subsampling = "species", replace = FALSE)
-
-###############
-# install.packages("phylocurve")
 
 
 ####### beta diversity ######
@@ -618,30 +411,8 @@ pd <- phylocurve(otu_table, tree, stepm = 10, subsampling = "species", replace =
 #plot(comm.pca)
 
 
-# #######
-
-
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 
 webpages to learn from 
