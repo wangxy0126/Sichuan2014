@@ -17,6 +17,7 @@ library(iNextPD)
 library(ade4)
 library(boral)
 library(mvabund)
+library(RColorBrewer)
 
 library(PDcalc)
 library(ape)
@@ -298,7 +299,7 @@ outcomm0$iNextEst
 outcomm0$AsyEst
 ```
 
-```{r iNextPD test}
+```{r iNextPD test, eval=FALSE, include=FALSE}
 data(bird)
 str(bird)
 bird.lab <- rownames(bird$abun)
@@ -341,14 +342,14 @@ ggiNEXT(out.inc, type=2, color.var="site") +
 ```
 
 
-```{r boral, cache=TRUE}
+```{r boral, cache=TRUE, eval=FALSE, include=FALSe}
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
 
 colnames(community) <- c(1:443)
 colnames(communityB) <- c(1:443)
 
 #### Negative binomial 
-comm.fit.nb3 <- boral(community, family = "negative.binomial", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control) 
+comm.fit.nb3 <- boral(community, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control) 
 latvarscomm.fit.nb3 <- comm.fit.nb3[["lv.median"]]
 summary(comm.fit.nb3)
 par(mfrow = c(2,2))
@@ -360,7 +361,7 @@ lvsplot(comm.fit.nb3, biplot=FALSE, col=as.numeric(habitatN$Habitat))
 # plot(lv2 ~ lv1, data = latvarscomm.fit.nb3, col=as.numeric(habitatN$Habitat))
 # par(mfrow = c(1,1))
 
-commB.fit.nb3 <- boral(communityB, family = "negative.binomial", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control)
+commB.fit.nb3 <- boral(communityB, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
 summary(commB.fit.nb3)
 par(mfrow = c(2,2))
 plot(commB.fit.nb3) ## Plots used in residual analysis, 
@@ -368,23 +369,123 @@ par(mfrow = c(1,1))
 lvsplot(commB.fit.nb3, biplot=FALSE)
 
 #### Poisson
-commB.fit.pb3 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control)
+commB.fit.pb3 <- boral(communityB, family = "poisson", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
 summary(commB.fit.pb3)
 par(mfrow = c(2,2))
 plot(commB.fit.pb3) ## Plots used in residual analysis, 
 par(mfrow = c(1,1))
 lvsplot(commB.fit.pb3, biplot=FALSE)
+
+#### Binomial
+commB.fit.b3 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+summary(commB.fit.b3)
+par(mfrow = c(2,2))
+plot(commB.fit.b3) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+lvsplot(commB.fit.b3, biplot=FALSE)
+
+#### Ordinal  # does not run, need to try running overnight
+communityO <- community+1
+comm.fit.o3 <- boral(communityO, family = "ordinal", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+summary(comm.fit.o3)
+par(mfrow = c(2,2))
+plot(comm.fit.o3) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+lvsplot(comm.fit.o3, biplot=FALSE)
 ```
 
-```{r boral high iterations}
-mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
+Poisson and Binomial to produce the best residuals. Re-run with more iterations
+```{r boral high iterations, cache=TRUE}
 
-commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", calc.ics = FALSE, mcmc.control = mcmc.control4)  # high iterations
+colnames(community) <- c(1:443)
+colnames(communityB) <- c(1:443)
+
+# mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
+mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
+
+#### Poisson
+commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)  # high iterations
 summary(commB.fit.pb3.4)
 par(mfrow = c(2,2))
 plot(commB.fit.pb3.4) ## Plots used in residual analysis, 
 par(mfrow = c(1,1))
-lvsplot(commB.fit.pb3.4)
+mypalette <- brewer.pal(6, "Dark2")
+par(mfrow = c(1,2))
+lvsplot(commB.fit.pb3.4, ind.spp = 5, col = as.numeric(habitatN$Habitat), pch = 16) # ind.spp = 5:  show top 5 most important indicator species
+plot(commB.fit.pb3.4[["lv.median"]][,1] ~ commB.fit.pb3.4[["lv.median"]][,2], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
+par(mfrow = c(1,1))
+# saveRDS(commB.fit.pb3.4, "commB.fit.pb3.4.RDS")
+
+#### Binomial
+commB.fit.b3.4 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control4)
+summary(commB.fit.b3.4)
+par(mfrow = c(2,2))
+plot(commB.fit.b3.4) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+par(mfrow = c(1,2))
+lvsplot(commB.fit.b3.4, biplot=FALSE)
+plot(commB.fit.b3.4[["lv.median"]][,1] ~ commB.fit.b3.4[["lv.median"]][,2], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
+par(mfrow = c(1,1))
+saveRDS(commB.fit.b3.4, "commB.fit.b3.4.RDS")
+```
+
+```{r boral example}
+library(mvabund)
+library(boral)
+data(spider) 
+y <- spider$abun #dim(y)
+mcmc.control <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
+
+## PART 1: Purely latent variable models assuming Poisson counts ## 
+fit.lvmp <- boral(y = y, family = "poisson", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+summary(fit.lvmp)
+fit.lvmp$hpdintervals
+par(mfrow = c(2,2))
+plot(fit.lvmp, ask = F, mfrow = c(2,2))
+par(mfrow = c(1,1))
+fit.lvmnb <- boral(y = y, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+summary(fit.lvmnb)
+par(mfrow = c(2,2))
+plot(fit.lvmnb, ask = F, mfrow = c(2,2))
+par(mfrow = c(1,1))
+lvsplot(fit.lvmnb, alpha = 0.55, main = "Unconstrained biplot")
+
+
+fit.nbnoX <- boral(y = y, family = "negative.binomial", num.lv = 2, save.model = TRUE, mcmc.control = mcmc.control)
+rescors.null <- get.residual.cor(fit.nbnoX)
+
+X <- scale(spider$x) 
+fit.Xnb <- boral(y = y, X = X, family = "negative.binomial", num.lv = 2, save.model = TRUE, mcmc.control = mcmc.control)
+summary(fit.Xnb)
+par(mfrow = c(2,2))
+plot(fit.Xnb, ask = F, mfrow = c(2,2))
+par(mfrow = c(1,1))
+
+envcors <- get.enviro.cor(fit.Xnb) 
+rescors <- get.residual.cor(fit.Xnb)
+
+library(corrplot) 
+corrplot(envcors$sig.cor, type = "lower", diag = F, title = "Correlations due to covariates", mar = c(3,0.5,2,1), tl.srt = 45)
+corrplot(rescors$sig.cor, type = "lower", diag = F, title = "Residual correlati ons", mar = c(3,0.5,2,1), tl.srt = 45)
+lvsplot(fit.Xnb, main = "Residual biplot", alpha = 0.55)
+rescors.null$trace
+rescors$trace
+(rescors.null$trace-rescors$trace)/rescors.null$trace
+fit.Xnb.ssvsgp <- boral(y = y, X = X, num.lv = 2, family = "negative.binomial", save.model = T, ssvs.index = 1:ncol(X))
+summary(fit.Xnb.ssvsgp)
+
+fit.Xnb.ssvsind <- boral(y = y, X = X, num.lv = 2, family = "negative.binomial", save.model = T, ssvs.index = 0)
+summary(fit.Xnb.ssvsind)
+summary(fit.Xnb.ssvsind$ssvs.indcoefs.mean)
+
+data(antTraits) 
+y <- antTraits$abun 
+sel.spp <- colSums(y>0)>4 # ant has more than four traits with measurements
+y <- y[,sel.spp] 
+X <- antTraits$env ## Scale covariates to ease interpretability
+
+traits <- model.matrix(~., data = antTraits$traits[sel.spp,])
+
 ```
 
 
