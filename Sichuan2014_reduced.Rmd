@@ -18,6 +18,7 @@ library(ade4)
 library(boral)
 library(mvabund)
 library(RColorBrewer)
+library(betapart)
 
 library(PDcalc)
 library(ape)
@@ -341,7 +342,7 @@ ggiNEXT(out.inc, type=2, color.var="site") +
 
 ```
 
-
+Testing different errors
 ```{r boral, cache=TRUE, eval=FALSE, include=FALSe}
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
 
@@ -384,18 +385,18 @@ plot(commB.fit.b3) ## Plots used in residual analysis,
 par(mfrow = c(1,1))
 lvsplot(commB.fit.b3, biplot=FALSE)
 
-#### Ordinal  # does not run, need to try running overnight
-communityO <- community+1
-comm.fit.o3 <- boral(communityO, family = "ordinal", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
-summary(comm.fit.o3)
-par(mfrow = c(2,2))
-plot(comm.fit.o3) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-lvsplot(comm.fit.o3, biplot=FALSE)
+# #### Ordinal  # does not run, even overnight
+# communityO <- community+1
+# comm.fit.o3 <- boral(communityO, family = "ordinal", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+# summary(comm.fit.o3)
+# par(mfrow = c(2,2))
+# plot(comm.fit.o3) ## Plots used in residual analysis, 
+# par(mfrow = c(1,1))
+# lvsplot(comm.fit.o3, biplot=FALSE)
 ```
 
-Poisson and Binomial to produce the best residuals. Re-run with more iterations
-```{r boral high iterations, cache=TRUE}
+Poisson and Binomial to produce the best residuals. I re-ran with more iterations, and Binomial had the best (slightly) residuals.  So i have settled on Binomial, which is expected.
+```{r boral high iterations, }
 
 colnames(community) <- c(1:443)
 colnames(communityB) <- c(1:443)
@@ -403,33 +404,70 @@ colnames(communityB) <- c(1:443)
 # mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
 mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
 
-#### Poisson
-commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)  # high iterations
-summary(commB.fit.pb3.4)
-par(mfrow = c(2,2))
-plot(commB.fit.pb3.4) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-mypalette <- brewer.pal(6, "Dark2")
-par(mfrow = c(1,2))
-lvsplot(commB.fit.pb3.4, ind.spp = 5, col = as.numeric(habitatN$Habitat), pch = 16) # ind.spp = 5:  show top 5 most important indicator species
-plot(commB.fit.pb3.4[["lv.median"]][,1] ~ commB.fit.pb3.4[["lv.median"]][,2], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
-par(mfrow = c(1,1))
-# saveRDS(commB.fit.pb3.4, "commB.fit.pb3.4.RDS")
+# #### Poisson
+# commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)  # high iterations
+# summary(commB.fit.pb3.4)
+# par(mfrow = c(2,2))
+# plot(commB.fit.pb3.4) ## Plots used in residual analysis, 
+# par(mfrow = c(1,1))
+# mypalette <- brewer.pal(6, "Dark2")
+# par(mfrow = c(1,2))
+# lvsplot(commB.fit.pb3.4, col = as.numeric(habitatN$Habitat), pch = 16) # ind.spp = 5:  show top 5 most important indicator species
+# plot(commB.fit.pb3.4[["lv.median"]][,1] ~ commB.fit.pb3.4[["lv.median"]][,2], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
+# par(mfrow = c(1,1))
+# # saveRDS(commB.fit.pb3.4, "commB.fit.pb3.4.RDS")
 
 #### Binomial
-commB.fit.b3.4 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control4)
+commB.fit.b3.4 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)
 summary(commB.fit.b3.4)
 par(mfrow = c(2,2))
 plot(commB.fit.b3.4) ## Plots used in residual analysis, 
 par(mfrow = c(1,1))
 par(mfrow = c(1,2))
-lvsplot(commB.fit.b3.4, biplot=FALSE)
+lvsplot(commB.fit.b3.4, biplot=FALSE, col = as.numeric(habitatN$Habitat))
 plot(commB.fit.b3.4[["lv.median"]][,1] ~ commB.fit.b3.4[["lv.median"]][,2], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
 par(mfrow = c(1,1))
 saveRDS(commB.fit.b3.4, "commB.fit.b3.4.RDS")
+
+# commB.fit.b3.4 <- readRDS("commB.fit.b3.4.RDS")
 ```
 
-```{r boral example}
+```{r betapart}
+# Read the data for Northern and Southern European cerambycids
+data(ceram.s)
+data(ceram.n)
+
+ceram.dist<-beta.pair(ceram.s, index.family="jac")
+ceram.beta<-beta.multi(ceram.s, index.family="sor")
+
+# Resample 100 times the multiple-site dissimilarities
+# for 10 countries.
+beta.ceram.s<-beta.sample(ceram.s, index.family="sor", sites=10, samples=100)
+beta.ceram.n<-beta.sample(ceram.n, index.family="sor", sites=10, samples=100)
+
+# Plot the distributions of beta.SIM in Southern Europe (red) 
+# and Northern Europe (blue)
+plot(density(beta.ceram.s$sampled.values$beta.SIM), col="red", xlim=c(0,1))
+lines(density(beta.ceram.n$sampled.values$beta.SIM), col="blue")
+
+# Compute the p-value of difference in beta.SIM between South and North 
+# (i.e. the probability of finding in the North a higher value than 
+# in the South)
+p.value.beta.SIM<-length(which(beta.ceram.s$sampled.values$beta.SIM<
+beta.ceram.n$sampled.values$beta.SIM))/100
+
+p.value.beta.SIM
+# The result is 0 and we used 100 samples, so p<0.01\
+# 
+# 
+betapairout <- beta.pair(communityB, index.family="jac")
+betapairout
+```
+
+
+
+
+```{r boral example, eval=FALSE}
 library(mvabund)
 library(boral)
 data(spider) 
