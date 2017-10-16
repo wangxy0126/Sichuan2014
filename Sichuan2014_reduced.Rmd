@@ -18,6 +18,7 @@ library(ade4)
 library(boral)
 library(mvabund)
 library(RColorBrewer)
+colvec <- brewer.pal(5, "Set1")
 library(betapart)
 
 library(PDcalc)
@@ -133,16 +134,39 @@ colnames(commMBC.40)
 
 ```
 
-
-```{r filter out low-read sites, }
-rowSums(communityAll) # Three sites with very few reads ("JC04", "CL02", "BB02")
-
+Filter out sites with (1) very low numbers of reads, (2) very low numbers of species
+```{r filter out sites, }
 community <- communityAll
 habitat$rowsums <- rowSums(community)
-# these three sites have very few reads, so i'm removing them:  2, 110, and 380 reads
+habitat$sprichness <- specnumber(community, MARGIN = 1) # number of species per site
+
+# View(habitat) 
+# remove 3 sites that have very few reads:  2, 110, and 380 reads
 community <- community %>% filter(!(habitat$Site %in% c("JC04", "CL02", "BB02")))
 habitatN <- habitat %>% filter(!(habitat$Site %in% c("JC04", "CL02", "BB02")))
 rowSums(community)
+
+# remove 5 sites that have few species
+community <- community %>% filter(habitatN$sprichness >= 10)
+habitatN <- habitatN %>% filter(habitatN$sprichness >= 10)
+
+habitatN <- droplevels(habitatN)
+
+# should I rarefy the dataset?
+# with(habitatN, plot(sprichness ~ rowsums))
+# with(habitatN, abline(lm(sprichness~rowsums)))
+# sprichness_mod <- with(habitatN, lm(sprichness ~ rowsums)); summary(sprichness_mod)
+# sort(rowSums(community)) 
+# There is no clear relationship between row sums and species richness, except that the max species richness is higher between 15,000 and 60,000 compared to < 15,000 reads.  But lots of high read number sites sites have few species.  So no call for rarefaction
+
+
+# data(BCI)
+# S <- specnumber(BCI) # observed number of species
+# (raremax <- min(rowSums(BCI)))
+# Srare <- rarefy(BCI, raremax)
+# plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+# abline(0, 1)
+# rarecurve(BCI, step = 20, sample = raremax, col = "blue", cex = 0.6)
 ```
 
 ```{r save datasets for GDM, eval=FALSE, include=FALSE}
@@ -152,71 +176,79 @@ write.table(habitatN, "GDM_environment.txt", sep = "\t")
 
 ```{r NMDS}
 ### do NMDS analysis to see basic patterns ####
-community.jmds <- metaMDS(community, distance = "jaccard", trymax = 40, binary=TRUE)
-community.jmds <- metaMDS(community, distance = "jaccard", binary = TRUE, previous.best = community.jmds)
- 
+communityB <- community
+communityB[communityB>1] <- 1 # binary
+rownames(communityB) # 58 rows
+community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary=TRUE)
+community.jmds <- metaMDS(communityB, distance = "jaccard", binary = TRUE, previous.best = community.jmds)
 stressplot(community.jmds)
 ```
 
-```{r ordihull plot, }
+```{r ordispider plots, }
 #### plot the communities
 levels(habitatN$Habitat)
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
+colvec <- brewer.pal(5, "Set1")
 
-with(habitat, ordisurf(community.jmds, sprichness, main="", cex=0.5))
+with(habitatN, ordisurf(community.jmds, sprichness, main="", cex=0.5, col = "grey"))
 # with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
 
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
 
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("green"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
 
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("red"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
 
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
 
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("lightgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
 
-with(habitatN, ordihull(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
 
+```
+
+```{r}
+tabasco(community, use = community.jmds, labCol = habitat$Habitat, col = brewer.pal(3, "Oranges"))
 ```
 
 Ordiellipse plots cover the 95% CIs for the species points, not the site points
 ```{r ordiellipse plot, eval=FALSE, include=FALSE}
 #### plot the communities
-levels(habitatN$Habitat)
+levels(habitatN$Habitat) 
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
-with(habitat, ordisurf(community.jmds, sprichness, main="", cex=0.5))
+
+with(habitatN, ordisurf(community.jmds, sprichness, main="", cex=0.5, col = "grey"))
 # with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("green"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("red"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("blue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkblue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
 
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkgreen"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkblue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
 
 ```
 
 If we want to identify individual points, we can use these commands. but not necessary now.
 ```{r ordiplots, eval=FALSE, include=FALSE}
-# These commands are ways to identify points
+# These commands are ways to identify points 
 orditorp(community.jmds, labels = habitatN$Site, dis="sites", pcol = "gray")
 ordipointlabel(community.jmds, dis="sites")
 
@@ -226,21 +258,20 @@ ordipointlabel(community.jmds, dis="sites")
 
 ```{r specpool, }
 ######### otu table with original reads number ######
-(pool1 <- specpool(community, habitatN$Habitat))
+(pool1 <- specpool(communityB, habitatN$Habitat))
 ```
 
    Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
 BB     125 219.7378 30.74967 189.8889 25.55845 229.6528 153.2380 12.00890  9
 CL     210 333.4333 35.52432 295.8667 26.84043 349.8476 247.2540 12.74553 15
-EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
-JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
+EC      79 125.0800 18.14375 117.4000 20.40392 137.2000  96.3264  9.65950  5
+JC     103 213.8395 39.07452 162.5556 23.27718 202.4167 128.2358 10.61719  9
 MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
+NF     223 423.0117 49.47008 342.0909 42.99145 420.5545 273.7362 20.08776 11
 
 ```{r}
-beanplot(specnumber(community)~habitatN$Habitat, col = c("grey", "white"))
+beanplot(specnumber(communityB)~habitatN$Habitat, col = c("grey", "white"))
 ```
-
 
 ```{r iNEXT}
 # # example for incidence based data
@@ -253,9 +284,7 @@ beanplot(specnumber(community)~habitatN$Habitat, col = c("grey", "white"))
 # vignette ("Introduction", package="iNEXT")
 # http://chao.stat.nthu.edu.tw/wordpress/wp-content/uploads/software/iNEXT_UserGuide.pdf
 
-communityB <- community
-communityB[communityB>1] <- 1 # binary
-rownames(communityB) # 67 rows
+
 BB <- communityB %>% filter(habitatN$Habitat %in% c("BB"))
 CL <- communityB %>% filter(habitatN$Habitat %in% c("CL"))
 EC <- communityB %>% filter(habitatN$Habitat %in% c("EC"))
@@ -268,10 +297,10 @@ cname <- c("BB","CL","EC","JC","MF","NF")
 #    Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
 # BB     125 219.7378 30.74967 189.8889 25.55845 229.6528 153.2380 12.00890  9
 # CL     210 333.4333 35.52432 295.8667 26.84043 349.8476 247.2540 12.74553 15
-# EC      84 140.8969 21.74079 128.6250 20.80377 154.0179 103.6627 11.12558  8
-# JC     105 232.2995 44.94411 167.7273 23.60137 211.6636 131.2092 11.21026 11
+# EC      79 125.0800 18.14375 117.4000 20.40392 137.2000  96.3264  9.65950  5
+# JC     103 213.8395 39.07452 162.5556 23.27718 202.4167 128.2358 10.61719  9
 # MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-# NF     229 441.6250 51.79186 355.0000 43.14008 439.8095 282.3105 21.72050 15
+# NF     223 423.0117 49.47008 342.0909 42.99145 420.5545 273.7362 20.08776 11
 
 comm4inext <- matrix(c(colSums(BB), colSums(CL), colSums(EC), colSums(JC), colSums(MF), colSums(NF)), ncol = 6)
 # rownames(comm4inext) <- rname
@@ -343,7 +372,7 @@ ggiNEXT(out.inc, type=2, color.var="site") +
 ```
 
 Testing different errors
-```{r boral, cache=TRUE, eval=FALSE, include=FALSe}
+```{r boral, cache=TRUE, eval=FALSE, include=FALSE}
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
 
 colnames(community) <- c(1:443)
@@ -396,17 +425,17 @@ lvsplot(commB.fit.b3, biplot=FALSE)
 ```
 
 Poisson and Binomial to produce the best residuals. I re-ran with more iterations, and Binomial had the best (slightly) residuals.  So i have settled on Binomial, which is expected.
-```{r boral high iterations, }
+```{r boral high iterations, eval=FALSE}
 
-colnames(community) <- c(1:443)
+colnames(community) <- c(1:443) 
 colnames(communityB) <- c(1:443)
 
 # mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
 mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
 
 # #### Poisson
-# commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)  # high iterations
-# summary(commB.fit.pb3.4)
+# commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)  # high iterations 
+# summary(commB.fit.pb3.4) 
 # par(mfrow = c(2,2))
 # plot(commB.fit.pb3.4) ## Plots used in residual analysis, 
 # par(mfrow = c(1,1))
@@ -425,7 +454,7 @@ plot(commB.fit.b3.4) ## Plots used in residual analysis,
 par(mfrow = c(1,1))
 par(mfrow = c(1,2))
 lvsplot(commB.fit.b3.4, biplot=FALSE, col = as.numeric(habitatN$Habitat))
-plot(commB.fit.b3.4[["lv.median"]][,1] ~ commB.fit.b3.4[["lv.median"]][,2], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
+plot(commB.fit.b3.4[["lv.median"]][,2] ~ commB.fit.b3.4[["lv.median"]][,1], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
 par(mfrow = c(1,1))
 saveRDS(commB.fit.b3.4, "commB.fit.b3.4.RDS")
 
@@ -433,6 +462,154 @@ saveRDS(commB.fit.b3.4, "commB.fit.b3.4.RDS")
 ```
 
 ```{r betapart}
+communityBbetapart <- bind_cols(habitatN, communityB)
+communityBbetapart <- communityBbetapart %>% select(-c(Habitat:sprichness))
+
+JCNF <- communityBbetapart %>% filter(habitatN$Habitat %in% c("JC", "NF")) %>% column_to_rownames(var="Site")
+BBNF <- communityBbetapart %>% filter(habitatN$Habitat %in% c("BB", "NF")) %>% column_to_rownames(var="Site")
+CLNF <- communityBbetapart %>% filter(habitatN$Habitat %in% c("CL", "NF")) %>% column_to_rownames(var="Site")
+ECNF <- communityBbetapart %>% filter(habitatN$Habitat %in% c("EC", "NF")) %>% column_to_rownames(var="Site")
+MFNF <- communityBbetapart %>% filter(habitatN$Habitat %in% c("MF", "NF")) %>% column_to_rownames(var="Site")
+
+JCNF.multi.dist <- beta.multi(JCNF, index.family="jac")
+BBNF.multi.dist <- beta.multi(BBNF, index.family="jac")
+CLNF.multi.dist <- beta.multi(CLNF, index.family="jac")
+ECNF.multi.dist <- beta.multi(ECNF, index.family="jac")
+MFNF.multi.dist <- beta.multi(MFNF, index.family="jac")
+
+multi.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, CLNF = CLNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
+
+
+ALL.dist <- communityBbetapart %>% column_to_rownames(var="Site") %>% beta.pair(index.family="jac")
+ALL.dist.subset <- ALL.dist[["beta.jne"]]
+ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset)
+ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
+stressplot(ALL.dist.jne.jmds)
+ALL.dist.subset <- ALL.dist[["beta.jtu"]]
+ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset)
+ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
+stressplot(ALL.dist.jtu.jmds)
+
+par(mfrow=c(2,2))
+with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4)))
+# plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+
+plot(ALL.dist.jtu.jmds, main = "Turnover beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+    
+plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+    
+par(mfrow=c(1,1))
+
+```
+
+
+Redoing the above with forest plots only
+```{r}
+communityBforest <- communityB %>% filter(!(habitatN$Habitat %in% c("CL")))
+communityBforest.jmds <- metaMDS(communityBforest, distance = "jaccard", trymax = 40, binary=TRUE)
+communityBforest.jmds <- metaMDS(communityBforest, distance = "jaccard", binary = TRUE, previous.best = community.jmds)
+stressplot(communityBforest.jmds)
+plot(communityBforest.jmds)
+habitatNforest <- habitatN %>% filter(!(Habitat %in% c("CL")))
+habitatNforest <- droplevels(habitatNforest)
+levels(habitatNforest$Habitat)
+
+
+with(habitatNforest, ordisurf(communityBforest.jmds, sprichness, main="All beta diversity", cex=0.5, col = "grey"))
+    with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+    
+    
+    
+tabasco(communityBforest, use = communityBforest.jmds, labCol = habitatNforest$Habitat, col = heat.colors(1))
+
+
+
+communityBbetapart <- bind_cols(habitatNforest, communityBforest)
+communityBbetapart <- communityBbetapart %>% select(-c(Habitat:sprichness))
+# 
+JCNF <- communityBbetapart %>% filter(habitatNforest$Habitat %in% c("JC", "NF")) %>% column_to_rownames(var="Site")
+BBNF <- communityBbetapart %>% filter(habitatNforest$Habitat %in% c("BB", "NF")) %>% column_to_rownames(var="Site")
+ECNF <- communityBbetapart %>% filter(habitatNforest$Habitat %in% c("EC", "NF")) %>% column_to_rownames(var="Site")
+MFNF <- communityBbetapart %>% filter(habitatNforest$Habitat %in% c("MF", "NF")) %>% column_to_rownames(var="Site")
+
+JCNF.multi.dist <- beta.multi(JCNF, index.family="jac")
+BBNF.multi.dist <- beta.multi(BBNF, index.family="jac")
+ECNF.multi.dist <- beta.multi(ECNF, index.family="jac")
+MFNF.multi.dist <- beta.multi(MFNF, index.family="jac")
+
+multi.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
+
+
+ALL.dist <- communityBbetapart %>% column_to_rownames(var="Site") %>% beta.pair(index.family="jac")
+ALL.dist.subset <- ALL.dist[["beta.jne"]]
+ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset)
+ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
+stressplot(ALL.dist.jne.jmds)
+ALL.dist.subset <- ALL.dist[["beta.jtu"]]
+ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset)
+ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
+stressplot(ALL.dist.jtu.jmds)
+
+
+community.jmds <- communityBforest.jmds
+habitatN <- habitatNforest
+
+par(mfrow=c(2,2))
+with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4)))
+# plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+
+plot(ALL.dist.jtu.jmds, main = "Turnover beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+    
+plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+    
+par(mfrow=c(1,1))
+
+protest(communityBforest.jmds, ALL.dist.jtu.jmds)
+protest(communityBforest.jmds, ALL.dist.jne.jmds)
+  
+```
+
+
+
+
+```{r betapart cerambycid example, eval=FALSE}
 # Read the data for Northern and Southern European cerambycids
 data(ceram.s)
 data(ceram.n)
@@ -464,11 +641,8 @@ betapairout <- beta.pair(communityB, index.family="jac")
 betapairout
 ```
 
-
-
-
-```{r boral example, eval=FALSE}
-library(mvabund)
+```{r boral spider example, eval=FALSE}
+library(mvabund) 
 library(boral)
 data(spider) 
 y <- spider$abun #dim(y)
@@ -526,38 +700,7 @@ traits <- model.matrix(~., data = antTraits$traits[sel.spp,])
 
 ```
 
-
-```{r tabasco}
-vegemite(communityB)
-tabasco(communityB)
-
-x0 <- communityB %>% filter(habitatN$Habitat %in% c("BB")) %>% colSums()
-x1 <- communityB %>% filter(habitatN$Habitat %in% c("CL")) %>% colSums()
-x2 <- communityB %>% filter(habitatN$Habitat %in% c("EC")) %>% colSums()
-x3 <- communityB %>% filter(habitatN$Habitat %in% c("JC")) %>% colSums()
-x4 <- communityB %>% filter(habitatN$Habitat %in% c("MF")) %>% colSums()
-x5 <- communityB %>% filter(habitatN$Habitat %in% c("NF")) %>% colSums()
-
-habSum <- matrix(c(x0,x1,x2,x3,x4,x5), ncol = 443)
-
-colnames(habSum)
-rownames(habSum)
-row <- c("BB","CL","EC","JC","MF","NF")
-col <- c(1:443)
-dimnames(habSum) <- list(row,col)
-
-vegemite(habSum, scale = "Hill")
-tabasco(habSum)
-
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-
-
-
-after this, do mvabund and betapart
-
-```{r}
+```{r boral spider example 2, eval=FALSE}
 library(boral)
 
 ## Not run: 
@@ -584,8 +727,7 @@ sapply(colnames(spider.fit.nb$X), coefsplot,
 ## End(Not run)
 ```
 
-
-```{r PD calc} 
+```{r PD calc, eval=FALSE} 
 
 ########### phylocurve ##############
 
