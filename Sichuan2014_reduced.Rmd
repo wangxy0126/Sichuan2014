@@ -7,6 +7,19 @@ I have set up github repo on github.com/dougwyu/Sichuan2014
 Original filename:  Re2014_SiCMBC_Xiaoy0726.Rmd
 Make sure that Source option is set to `Chunk output in Console` and do not select `Show Previews inline`
 
+
+## Tentative conclusions
+
+1) Mosaic forest compositions are largely driven by Bamboo communities, plus a bit more from the other plantations.   Do we have a list of what each MF is made of?
+
+## To do:
+
+1)  mvabund or boral to test for sig compositional differences between forest types (esp. btw MF and BB, JC, EU)
+2)  stacked barchart of multi-site beta diversity metrics
+3)  do this analysis with birds? 
+4)  also report Kat's results about mixed vs. mosaic?
+
+
 ```{r setup, packages}
 library(tidyverse) # includes all data-formatting packages as one big package (dplyr, tidyr, ggplot2, readr, readxl, tibble, and others)
 library(vegan)
@@ -490,6 +503,8 @@ ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset)
 ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
 stressplot(ALL.dist.jtu.jmds)
 
+
+
 par(mfrow=c(2,2))
 with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4)))
 # plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
@@ -559,7 +574,19 @@ BBNF.multi.dist <- beta.multi(BBNF, index.family="jac")
 ECNF.multi.dist <- beta.multi(ECNF, index.family="jac")
 MFNF.multi.dist <- beta.multi(MFNF, index.family="jac")
 
-multi.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
+multi.NF.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
+
+# comparing to MF
+JCMF <- communityBbetapart %>% filter(habitatNforest$Habitat %in% c("JC", "MF")) %>% column_to_rownames(var="Site")
+BBMF <- communityBbetapart %>% filter(habitatNforest$Habitat %in% c("BB", "MF")) %>% column_to_rownames(var="Site")
+ECMF <- communityBbetapart %>% filter(habitatNforest$Habitat %in% c("EC", "MF")) %>% column_to_rownames(var="Site")
+
+JCMF.multi.dist <- beta.multi(JCMF, index.family="jac")
+BBMF.multi.dist <- beta.multi(BBMF, index.family="jac")
+ECMF.multi.dist <- beta.multi(ECMF, index.family="jac")
+
+multi.MF.all <- list(JCMF = JCMF.multi.dist, BBMF = BBMF.multi.dist, ECMF =  ECMF.multi.dist)
+
 
 
 ALL.dist <- communityBbetapart %>% column_to_rownames(var="Site") %>% beta.pair(index.family="jac")
@@ -605,7 +632,6 @@ protest(communityBforest.jmds, ALL.dist.jtu.jmds)
 protest(communityBforest.jmds, ALL.dist.jne.jmds)
   
 ```
-
 
 
 
