@@ -46,7 +46,8 @@ sessionInfo()
 # this inputfile contains taxononomic assignments in the lower rows
 # command from readr package, and you tell the command how to format the columns
 
-inputfile <- "./data/Sichuan2014_MBC_OTU443.txt" # post phyloseq filtering and filtering for trees
+# inputfile <- "./data/Sichuan2014_MBC_OTU443.txt" # post phyloseq filtering and filtering for trees
+inputfile <- "./data/2014MBC_otu746table_with_Env20.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads
 
 gfgMB <- read_tsv(
   inputfile, col_names = TRUE, na = "NA",
