@@ -31,7 +31,6 @@ library(ade4)
 library(boral)
 library(mvabund)
 library(RColorBrewer)
-colvec <- brewer.pal(5, "Set1")
 library(betapart)
 
 library(PDcalc)
@@ -70,7 +69,7 @@ habitat <- habitat %>% dplyr::filter(!is.na(Habitat)) # remove taxonomy rows
 ```
 
 ```{r community build}
-community <- gfgMB %>% dplyr::select(starts_with("Cluster_"))
+community <- gfgMB %>% dplyr::select(starts_with("Cluster"))
 # otuvector <- colnames(community)
 community_t <- t(community)
 community_t <- as.data.frame(community_t)
@@ -155,12 +154,12 @@ habitat$rowsums <- rowSums(community)
 habitat$sprichness <- specnumber(community, MARGIN = 1) # number of species per site
 
 # View(habitat) 
-# remove 3 sites that have very few reads:  2, 110, and 380 reads
-community <- community %>% filter(!(habitat$Site %in% c("JC04", "CL02", "BB02")))
-habitatN <- habitat %>% filter(!(habitat$Site %in% c("JC04", "CL02", "BB02")))
+# remove 3 sites that have only 2 and 38 reads
+community <- community %>% filter(!(habitat$Site %in% c("JC04", "CL02")))
+habitatN <- habitat %>% filter(!(habitat$Site %in% c("JC04", "CL02")))
 rowSums(community)
 
-# remove 5 sites that have few species
+# remove 10 sites that have <10 species
 community <- community %>% filter(habitatN$sprichness >= 10)
 habitatN <- habitatN %>% filter(habitatN$sprichness >= 10)
 
@@ -198,7 +197,7 @@ community.jmds <- metaMDS(communityB, distance = "jaccard", binary = TRUE, previ
 stressplot(community.jmds)
 ```
 
-```{r ordispider plots, }
+```{r ordispider plot, }
 #### plot the communities
 levels(habitatN$Habitat)
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
@@ -275,13 +274,13 @@ ordipointlabel(community.jmds, dis="sites")
 (pool1 <- specpool(communityB, habitatN$Habitat))
 ```
 
-   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-BB     125 219.7378 30.74967 189.8889 25.55845 229.6528 153.2380 12.00890  9
-CL     210 333.4333 35.52432 295.8667 26.84043 349.8476 247.2540 12.74553 15
-EC      79 125.0800 18.14375 117.4000 20.40392 137.2000  96.3264  9.65950  5
-JC     103 213.8395 39.07452 162.5556 23.27718 202.4167 128.2358 10.61719  9
-MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-NF     223 423.0117 49.47008 342.0909 42.99145 420.5545 273.7362 20.08776 11
+   Species     chao   chao.se    jack1 jack1.se    jack2     boot  boot.se  n
+BB     149 370.8696  64.69408 243.5000 37.70196 309.7143 188.5740 15.81506  8
+CL     291 573.3333  63.13579 445.0000 47.13102 551.7857 356.0191 21.63914 15
+EC      91 141.6250  18.63480 136.0000 22.26732 159.2000 111.3077 11.11202  6
+JC     136 413.3595  88.26131 227.5556 39.48058 296.0972 173.6671 17.55551  9
+MF     195 589.9402 102.46346 330.1111 52.50279 430.6389 250.6104 21.91161  9
+NF     278 684.0888  87.21601 456.1818 64.32999 584.8818 352.0013 28.02073 11
 
 ```{r}
 beanplot(specnumber(communityB)~habitatN$Habitat, col = c("grey", "white"))
@@ -441,8 +440,8 @@ lvsplot(commB.fit.b3, biplot=FALSE)
 Poisson and Binomial to produce the best residuals. I re-ran with more iterations, and Binomial had the best (slightly) residuals.  So i have settled on Binomial, which is expected.
 ```{r boral high iterations, eval=FALSE}
 
-colnames(community) <- c(1:443) 
-colnames(communityB) <- c(1:443)
+# colnames(community) <- c(1:443) 
+# colnames(communityB) <- c(1:443)
 
 # mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
 mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
@@ -549,7 +548,7 @@ habitatNforest <- droplevels(habitatNforest)
 levels(habitatNforest$Habitat)
 
 
-with(habitatNforest, ordisurf(communityBforest.jmds, sprichness, main="All beta diversity", cex=0.5, col = "grey"))
+with(habitatNforest, ordisurf(communityBforest.jmds, sprichness, main="All beta diversity. Forest only", cex=0.5, col = "grey"))
     with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
     with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
     with(habitatNforest, ordispider(communityBforest.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
@@ -605,7 +604,7 @@ community.jmds <- communityBforest.jmds
 habitatN <- habitatNforest
 
 par(mfrow=c(2,2))
-with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4)))
+with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white", ylim = c(-0.8, 0.8), xlim = c(-0.4, 0.4)))
 # plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
     with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
     with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
@@ -613,14 +612,14 @@ with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", c
     with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
     with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
 
-plot(ALL.dist.jtu.jmds, main = "Turnover beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
+plot(ALL.dist.jtu.jmds, main = "Turnover beta diversity only", ylim = c(-0.8, 0.8), xlim = c(-0.4, 0.4))
     with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
     with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
     with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
     with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
     with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
     
-plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
+plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only", ylim = c(-0.8, 0.8), xlim = c(-0.4, 0.4))
     with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
     with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
     with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
@@ -628,11 +627,35 @@ plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only", ylim = c(-0.5, 
     with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
     
 par(mfrow=c(1,1))
-
-protest(communityBforest.jmds, ALL.dist.jtu.jmds)
-protest(communityBforest.jmds, ALL.dist.jne.jmds)
-  
 ```
+
+```{r}
+protest(communityBforest.jmds, ALL.dist.jtu.jmds)
+```
+
+Call:
+protest(X = communityBforest.jmds, Y = ALL.dist.jtu.jmds) 
+
+Procrustes Sum of Squares (m12 squared):        0.3852 
+Correlation in a symmetric Procrustes rotation: 0.7841 
+Significance:  0.001 
+
+Permutation: free
+Number of permutations: 999
+
+```{r}
+protest(communityBforest.jmds, ALL.dist.jne.jmds)
+```
+
+Call:
+protest(X = communityBforest.jmds, Y = ALL.dist.jne.jmds) 
+
+Procrustes Sum of Squares (m12 squared):        0.9699 
+Correlation in a symmetric Procrustes rotation: 0.1736 
+Significance:  0.506 
+
+Permutation: free
+Number of permutations: 999
 
 
 
