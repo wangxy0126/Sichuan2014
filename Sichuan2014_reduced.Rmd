@@ -203,8 +203,8 @@ levels(habitatN$Habitat)
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
 colvec <- brewer.pal(5, "Set1")
 
-with(habitatN, ordisurf(community.jmds, sprichness, main="", cex=0.5, col = "grey"))
-# with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
+# with(habitatN, ordisurf(community.jmds, sprichness, main="NMDS - species richness contour", cex=0.5, col = "grey"))
+with(habitatN, ordisurf(community.jmds, Altitude, main=" NMDS - Altitude contour", cex=0.5, col = "grey"))
 
 with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
 # with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
@@ -388,8 +388,8 @@ Testing different errors
 ```{r boral, cache=TRUE, eval=FALSE, include=FALSE}
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
 
-colnames(community) <- c(1:443)
-colnames(communityB) <- c(1:443)
+# colnames(community) <- c(1:443)
+# colnames(communityB) <- c(1:443)
 
 #### Negative binomial 
 comm.fit.nb3 <- boral(community, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control) 
@@ -425,7 +425,7 @@ summary(commB.fit.b3)
 par(mfrow = c(2,2))
 plot(commB.fit.b3) ## Plots used in residual analysis, 
 par(mfrow = c(1,1))
-lvsplot(commB.fit.b3, biplot=FALSE)
+lvsplot(commB.fit.b3, biplot=FALSE, col = as.numeric(habitatN$Habitat))
 
 # #### Ordinal  # does not run, even overnight
 # communityO <- community+1
@@ -460,7 +460,7 @@ mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
 # # saveRDS(commB.fit.pb3.4, "commB.fit.pb3.4.RDS")
 
 #### Binomial
-commB.fit.b3.4 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)
+commB.fit.b3.4.none <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "none", mcmc.control = mcmc.control4, save.model = TRUE)
 summary(commB.fit.b3.4)
 par(mfrow = c(2,2))
 plot(commB.fit.b3.4) ## Plots used in residual analysis, 
@@ -469,7 +469,7 @@ par(mfrow = c(1,2))
 lvsplot(commB.fit.b3.4, biplot=FALSE, col = as.numeric(habitatN$Habitat))
 plot(commB.fit.b3.4[["lv.median"]][,2] ~ commB.fit.b3.4[["lv.median"]][,1], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
 par(mfrow = c(1,1))
-saveRDS(commB.fit.b3.4, "commB.fit.b3.4.RDS")
+saveRDS(commB.fit.b3.4, "analysis/commB.fit.b3.4.RDS")
 
 # commB.fit.b3.4 <- readRDS("commB.fit.b3.4.RDS")
 ```
@@ -657,6 +657,22 @@ Significance:  0.506
 Permutation: free
 Number of permutations: 999
 
+```{r boral forest only}
+mcmc.control <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
+mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
+
+#### Binomial
+commB.forest.fit.b3.4.fixed <- boral(communityBforest, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control, save.model = TRUE)
+summary(commB.forest.fit.b3.4.fixed)
+par(mfrow = c(2,2))
+plot(commB.forest.fit.b3.4.fixed) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+par(mfrow = c(1,2))
+lvsplot(commB.forest.fit.b3.4.fixed, biplot=FALSE, col = as.numeric(habitatNforest$Habitat))
+plot(commB.forest.fit.b3.4.fixed[["lv.median"]][,2] ~ commB.forest.fit.b3.4.fixed[["lv.median"]][,1], col = as.numeric(habitatNforest$Habitat), pch = 16)  # to get just points, which we can then format as we want
+par(mfrow = c(1,1))
+saveRDS(commB.forest.fit.b3.4.fixed, "analysis/commB.forest.fit.b3.4.fixed.RDS")
+```
 
 
 ```{r betapart cerambycid example, eval=FALSE}
