@@ -46,7 +46,9 @@ sessionInfo()
 # command from readr package, and you tell the command how to format the columns
 
 # inputfile <- "./data/Sichuan2014_MBC_OTU443.txt" # post phyloseq filtering and filtering for trees
-inputfile <- "./data/2014MBC_otu746table_with_Env20.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads
+# inputfile <- "./data/2014MBC_otu746table_with_Env20.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads
+inputfile <- "./data/2014MBC_20reads_746otu_Landsat.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads, with landsat data
+
 
 gfgMB <- read_tsv(
   inputfile, col_names = TRUE, na = "NA",
@@ -59,12 +61,30 @@ gfgMB <- read_tsv(
     )
 )
 
+gfgMB <- read_tsv(
+   inputfile, col_names = TRUE, na = "NA",
+   col_types = cols(
+     Site = col_character(),
+     Habitat = col_factor(c("BB", "CL", "EC", "JC", "MF", "NF")),
+     Type = col_factor(c("1", "2", "3", "4", "5", "6")),
+     Altitude = col_integer(),
+     sampling_time = col_date(format = "%d/%m/%Y"),
+     weather_value = col_factor(c("cloudy", "sunny", "rainy")),
+     Landsat_value = col_factor(c("1", "2", "3", "4", "5", "6")),
+     longitude = col_double(),
+     latitude = col_double(),
+     Elevation_m = col_integer()
+     )
+ )
+
 gfgMB <- tbl_df(gfgMB)
+
+# with(gfgMB, plot(Altitude ~ Elevation_m, col=as.numeric(Habitat)))
 ```
 
 ```{r environment dataset}
 # make environment dataset
-habitat <- gfgMB %>% dplyr::select(Site:Weather)
+habitat <- gfgMB %>% dplyr::select(Site:Simpson_evenness_index)
 habitat <- habitat %>% dplyr::filter(!is.na(Habitat)) # remove taxonomy rows
 ```
 
@@ -150,18 +170,19 @@ colnames(commMBC.40)
 Filter out sites with (1) very low numbers of reads, (2) very low numbers of species
 ```{r filter out sites, }
 community <- communityAll
+community[community < 3] <- 0 # set small cells to 0
 habitat$rowsums <- rowSums(community)
 habitat$sprichness <- specnumber(community, MARGIN = 1) # number of species per site
 
 # View(habitat) 
-# remove 3 sites that have only 2 and 38 reads
-community <- community %>% filter(!(habitat$Site %in% c("JC04", "CL02")))
-habitatN <- habitat %>% filter(!(habitat$Site %in% c("JC04", "CL02")))
+# keep only sites that have more than 100 reads (removed 2)
+community <- community %>% filter(habitat$rowsums > 100)
+habitatN <- habitat %>% filter(habitat$rowsums > 100)
 rowSums(community)
 
-# remove 10 sites that have <10 species
-community <- community %>% filter(habitatN$sprichness >= 10)
-habitatN <- habitatN %>% filter(habitatN$sprichness >= 10)
+# keep only sites that have >=5 species (removed 68 - 64 = 4 sites)
+community <- community %>% filter(habitatN$sprichness >= 5)
+habitatN <- habitatN %>% filter(habitatN$sprichness >= 5)
 
 habitatN <- droplevels(habitatN)
 
@@ -227,7 +248,7 @@ with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="
 ```
 
 ```{r}
-tabasco(community, use = community.jmds, labCol = habitat$Habitat, col = brewer.pal(3, "Oranges"))
+tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer.pal(3, "Oranges"))
 ```
 
 Ordiellipse plots cover the 95% CIs for the species points, not the site points
@@ -275,12 +296,12 @@ ordipointlabel(community.jmds, dis="sites")
 ```
 
    Species     chao   chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-BB     149 370.8696  64.69408 243.5000 37.70196 309.7143 188.5740 15.81506  8
-CL     291 573.3333  63.13579 445.0000 47.13102 551.7857 356.0191 21.63914 15
-EC      91 141.6250  18.63480 136.0000 22.26732 159.2000 111.3077 11.11202  6
-JC     136 413.3595  88.26131 227.5556 39.48058 296.0972 173.6671 17.55551  9
-MF     195 589.9402 102.46346 330.1111 52.50279 430.6389 250.6104 21.91161  9
-NF     278 684.0888  87.21601 456.1818 64.32999 584.8818 352.0013 28.02073 11
+BB     131 344.4222  65.95468 218.1111 34.50103 280.7222 167.1569 15.33980  9
+CL     271 519.8889  55.57037 420.3333 45.49188 520.3714 334.5948 21.47996 15
+EC      88 149.7347  22.81217 135.1429 22.58589 161.9286 108.8202 11.28787  7
+JC     124 345.4171  72.52752 206.7273 33.42192 268.6636 158.0417 15.29339 11
+MF     161 536.5556 108.47768 276.5556 45.25047 364.0556 208.2756 18.89686  9
+NF     259 677.2722  92.87942 432.5385 60.39515 561.3654 330.4070 26.96634 13
 
 ```{r}
 beanplot(specnumber(communityB)~habitatN$Habitat, col = c("grey", "white"))
@@ -420,7 +441,7 @@ par(mfrow = c(1,1))
 lvsplot(commB.fit.pb3, biplot=FALSE)
 
 #### Binomial
-commB.fit.b3 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+commB.fit.b3 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "random", mcmc.control = mcmc.control) # row.eff = "random" makes this a compositional model (ignores differences in overall abundance across samples, which might help control for weather effects)
 summary(commB.fit.b3)
 par(mfrow = c(2,2))
 plot(commB.fit.b3) ## Plots used in residual analysis, 
@@ -473,6 +494,77 @@ saveRDS(commB.fit.b3.4, "analysis/commB.fit.b3.4.RDS")
 
 # commB.fit.b3.4 <- readRDS("commB.fit.b3.4.RDS")
 ```
+
+Constrained ordination
+```{r constrained boral ordination,}
+#### Binomial
+mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
+
+X <- scale(habitatN$Altitude, scale = FALSE)
+
+commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control, calc.ics = TRUE, save.model = TRUE)
+
+summary(commB.fit.b3.X)
+
+par(mfrow = c(2,2))
+plot(commB.fit.b3.X) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+
+# latent variables plot
+lvsplot(commB.fit.b3.X, biplot=FALSE, col = as.numeric(habitatN$Habitat))
+commB.fit.b3.X.biplot <- lvsplot(commB.fit.b3.X, ind.spp=10, return.vals=TRUE)
+
+
+# DIY slightly fancier biplot
+par(mfrow=c(1,1))
+plot(commB.fit.b3.X.biplot$scaled.lvs,col=as.numeric(habitatN$Habitat),type="n",ylim=c(-2.1,1))
+text(commB.fit.b3.X.biplot$scaled.lvs[,1],commB.fit.b3.X.biplot$scaled.lvs[,2],rownames(communityB),
+     col=as.numeric(habitatN$Habitat),cex=0.75)
+arrows(0,0,commB.fit.b3.X.biplot$scaled.lv.coefs[,1],commB.fit.b3.X.biplot$scaled.lv.coefs[,2],
+       length=0.07,lwd=0.5)
+text(commB.fit.b3.X.biplot$scaled.lv.coefs[,1],commB.fit.b3.X.biplot$scaled.lv.coefs[,2],colnames(communityB),
+     cex=0.35)
+# I have too many arrows - should only choose the rows of $scaled.lv.coefs for the
+# important Orders (maybe just do the significant ones from manyglm???)
+
+# how do the ordination scores relate to treatment effect?
+cbind(commB.fit.b3.X.biplot$scaled.lvs,habitatN$Habitat)
+par(mfrow = c(1,2))
+plot(commB.fit.b3.X.biplot$scaled.lvs[,1]~habitatN$Habitat)
+plot(commB.fit.b3.X.biplot$scaled.lvs[,2]~habitatN$Habitat)
+par(mfrow = c(1,1))
+cor(commB.fit.b3.X.biplot$scaled.lvs, as.numeric(habitatN$Habitat))
+# could even put a big arrow on the biplot in the direction of correlation
+
+
+library(corrplot) ## For plotting correlations
+communityB.ord = boral(communityB, num.lv=2, family="negative.binomial", save.model=TRUE, row.eff="random", calc.ics = TRUE, mcmc.control = mcmc.control)
+res.cors <- get.residual.cor(communityB.ord)
+# saveRDS(communityB.ord, "analysis/communityB.ord.RDS")
+corrplot(res.cors$cor, title = "Residual correlations", type = "lower", diag = FALSE, mar = c(3,0.5,2,1), tl.srt = 45)
+summary(communityB.ord)
+
+
+communityB.partialOrd = boral(communityB, X = X, num.lv = 2, family = "negative.binomial", save.model = TRUE, row.eff = "random", calc.ics = TRUE, mcmc.control = mcmc.control)
+
+partRes.cors <- get.residual.cor(communityB.partialOrd)
+par(mfrow=c(1,2))
+corrplot(res.cors$cor, title = "Residual correlations",
+         type = "lower", diag = FALSE, mar = c(3,0.5,2,1), tl.srt = 45)
+corrplot(partRes.cors$cor, title = "Partial residual correlations",
+         type = "lower", diag = FALSE, mar = c(3,0.5,2,1), tl.srt = 45)
+
+summary(communityB.ord)$ics
+summary(communityB.partialOrd)$ics
+res.cors$trace
+partRes.cors$trace
+(res.cors$trace-partRes.cors$trace)/res.cors$trace
+```
+
+
+
+
+
 
 ```{r betapart}
 communityBbetapart <- bind_cols(habitatN, communityB)
@@ -536,6 +628,8 @@ par(mfrow=c(1,1))
 ```
 
 
+
+## Forest only analysis
 Redoing the above with forest plots only
 ```{r}
 communityBforest <- communityB %>% filter(!(habitatN$Habitat %in% c("CL")))
@@ -712,7 +806,8 @@ library(mvabund)
 library(boral)
 data(spider) 
 y <- spider$abun #dim(y)
-mcmc.control <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
+mcmc.control <- list(n.burnin = 1000, n.iteration = 4000, n.thin = 3, seed = 123)
+# mcmc.control <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
 
 ## PART 1: Purely latent variable models assuming Poisson counts ## 
 fit.lvmp <- boral(y = y, family = "poisson", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
@@ -744,17 +839,47 @@ rescors <- get.residual.cor(fit.Xnb)
 
 library(corrplot) 
 corrplot(envcors$sig.cor, type = "lower", diag = F, title = "Correlations due to covariates", mar = c(3,0.5,2,1), tl.srt = 45)
-corrplot(rescors$sig.cor, type = "lower", diag = F, title = "Residual correlati ons", mar = c(3,0.5,2,1), tl.srt = 45)
+corrplot(rescors$sig.cor, type = "lower", diag = F, title = "Residual correlations", mar = c(3,0.5,2,1), tl.srt = 45)
 lvsplot(fit.Xnb, main = "Residual biplot", alpha = 0.55)
 rescors.null$trace
 rescors$trace
 (rescors.null$trace-rescors$trace)/rescors.null$trace
+
 fit.Xnb.ssvsgp <- boral(y = y, X = X, num.lv = 2, family = "negative.binomial", save.model = T, ssvs.index = 1:ncol(X))
 summary(fit.Xnb.ssvsgp)
 
 fit.Xnb.ssvsind <- boral(y = y, X = X, num.lv = 2, family = "negative.binomial", save.model = T, ssvs.index = 0)
 summary(fit.Xnb.ssvsind)
 summary(fit.Xnb.ssvsind$ssvs.indcoefs.mean)
+
+
+n <- nrow(y); p <- ncol(y); 
+
+## NOTE: The two examples below and taken directly from the boral help file
+
+# example.mcmc.control <- list(n.burnin = 10, n.iteration = 100, n.thin = 1)
+
+## Not run: 
+## Example 3a - Extend example 2 to demonstrate grouped covariate selection
+## on the last three covariates. 
+set.prior <- list(type = c("normal","normal","normal","uniform"), hypparams = c(10, 10, 10, 30), ssvs.index = c(-1,-1,-1,1,2,3))
+
+spider.fit.nb2 <- boral(y, X = X, family = "negative.binomial", 
+	num.lv = 0, calc.ics = FALSE, mcmc.control = mcmc.control,
+	prior.control = set.prior)
+     
+summary(spider.fit.nb2) 
+
+
+## Example 3b - Extend example 2 to demonstrate individual covariate selection
+## on the last three covariates. 
+set.prior <- list(type = c("normal","normal","normal","uniform"), 
+	hypparams = c(20, 20, 2, 50), ssvs.index = c(-1,-1,-1,0,0,0))
+spider.fit.nb3 <- boral(y, X = X, family = "negative.binomial", 
+	num.lv = 0, calc.ics = FALSE, mcmc.control = example.mcmc.control,
+	prior.control = set.prior)
+summary(spider.fit.nb3) 
+
 
 data(antTraits) 
 y <- antTraits$abun 
