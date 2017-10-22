@@ -109,12 +109,12 @@ community_t <- rownames_to_column(community_t)
 colnames(community_t) <- c("otu", gfgMB$Site) # add column names
 
 communityAll_t <- community_t %>% filter(phylum=="Arthropoda")
-communityAll_t <- community_t %>% select(-c(kingdom:species))
+communityAll_t <- community_t %>% dplyr::select(-c(kingdom:species))
 communityAll <- t(communityAll_t)
 colvector <- communityAll[1,] # make a vector of the first row, which has the otu names
 communityAll <- as.data.frame(communityAll)
 colnames(communityAll) <-  colvector # add the otu names to the column names
-communityAll <- communityAll[-1,]
+communityAll <- communityAll[-1,] # remove first row, which has the column names
 # convert the columns to numeric from factor
 # http://stackoverflow.com/questions/2288485/how-to-convert-a-data-frame-column-to-numeric-type
 communityAll <- sapply(communityAll, function(x) as.numeric(as.character(x))) # sapply applies a function to each column, and the function is:  function(x) as.numeric(as.character(x)).  Cannot convert factors to numeric directly. first convert to character, then to numeric
@@ -141,7 +141,7 @@ habitatN <- habitatN %>% filter(habitatN$sprichness >= 5)
 
 habitatN <- droplevels(habitatN)
 
-# should I rarefy the dataset?
+# should I rarefy the dataset?  This analysis suggests no.
 # with(habitatN, plot(sprichness ~ rowsums))
 # with(habitatN, abline(lm(sprichness~rowsums)))
 # sprichness_mod <- with(habitatN, lm(sprichness ~ rowsums)); summary(sprichness_mod)
@@ -163,86 +163,10 @@ write.table(community, "GDM_community.txt", sep = "\t")
 write.table(habitatN, "GDM_environment.txt", sep = "\t")
 ```
 
-```{r NMDS}
-### do NMDS analysis to see basic patterns ####
-communityB <- community
-communityB[communityB>1] <- 1 # binary
-rownames(communityB) # 58 rows
-community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary=TRUE)
-community.jmds <- metaMDS(communityB, distance = "jaccard", binary = TRUE, previous.best = community.jmds)
-stressplot(community.jmds)
-```
 
-```{r ordispider plot, }
-#### plot the communities
-levels(habitatN$Habitat)
-(sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
-colvec <- brewer.pal(5, "Set1")
-
-# with(habitatN, ordisurf(community.jmds, sprichness, main="NMDS - species richness contour", cex=0.5, col = "grey"))
-with(habitatN, ordisurf(community.jmds, Altitude, main=" NMDS - Altitude contour", cex=0.5, col = "grey"))
-
-with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
-
-with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
-
-with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
-
-with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
-
-with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
-
-with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
-
-```
-
+# Alpha Diversity
 ```{r}
-tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer.pal(3, "Oranges"))
-```
-
-Ordiellipse plots cover the 95% CIs for the species points, not the site points
-```{r ordiellipse plot, eval=FALSE, include=FALSE}
-#### plot the communities
-levels(habitatN$Habitat) 
-(sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
-
-with(habitatN, ordisurf(community.jmds, sprichness, main="", cex=0.5, col = "grey"))
-# with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkblue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
-
-with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkblue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
-# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
-
-```
-
-If we want to identify individual points, we can use these commands. but not necessary now.
-```{r ordiplots, eval=FALSE, include=FALSE}
-# These commands are ways to identify points 
-orditorp(community.jmds, labels = habitatN$Site, dis="sites", pcol = "gray")
-ordipointlabel(community.jmds, dis="sites")
-
-#p1 <- plot(community.jmds, dis="sites")
-#identify(p1, "sites") # interactive method to identify sites by row number. Click on the points that you want to identify. When you have clicked on all the points, click on the Finish button at top right of Plot window. 
+beanplot(specnumber(communityB)~habitatN$Habitat, col = c("grey", "white"))
 ```
 
 ```{r specpool, }
@@ -258,9 +182,6 @@ JC     124 345.4171  72.52752 206.7273 33.42192 268.6636 158.0417 15.29339 11
 MF     161 536.5556 108.47768 276.5556 45.25047 364.0556 208.2756 18.89686  9
 NF     259 677.2722  92.87942 432.5385 60.39515 561.3654 330.4070 26.96634 13
 
-```{r}
-beanplot(specnumber(communityB)~habitatN$Habitat, col = c("grey", "white"))
-```
 
 ```{r iNEXT}
 # # example for incidence based data
@@ -283,13 +204,13 @@ NF <- communityB %>% filter(habitatN$Habitat %in% c("NF"))
 
 # rname <- rownames(BB_t)
 cname <- c("BB","CL","EC","JC","MF","NF")
-#    Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-# BB     125 219.7378 30.74967 189.8889 25.55845 229.6528 153.2380 12.00890  9
-# CL     210 333.4333 35.52432 295.8667 26.84043 349.8476 247.2540 12.74553 15
-# EC      79 125.0800 18.14375 117.4000 20.40392 137.2000  96.3264  9.65950  5
-# JC     103 213.8395 39.07452 162.5556 23.27718 202.4167 128.2358 10.61719  9
-# MF     141 285.6838 43.12727 222.7778 32.32856 276.6389 175.8731 14.56185  9
-# NF     223 423.0117 49.47008 342.0909 42.99145 420.5545 273.7362 20.08776 11
+#    Species     chao   chao.se    jack1 jack1.se    jack2     boot  boot.se  n
+# BB     131 344.4222  65.95468 218.1111 34.50103 280.7222 167.1569 15.33980  9
+# CL     271 519.8889  55.57037 420.3333 45.49188 520.3714 334.5948 21.47996 15
+# EC      88 149.7347  22.81217 135.1429 22.58589 161.9286 108.8202 11.28787  7
+# JC     124 345.4171  72.52752 206.7273 33.42192 268.6636 158.0417 15.29339 11
+# MF     161 536.5556 108.47768 276.5556 45.25047 364.0556 208.2756 18.89686  9
+# NF     259 677.2722  92.87942 432.5385 60.39515 561.3654 330.4070 26.96634 13
 
 comm4inext <- matrix(c(colSums(BB), colSums(CL), colSums(EC), colSums(JC), colSums(MF), colSums(NF)), ncol = 6)
 # rownames(comm4inext) <- rname
@@ -308,14 +229,15 @@ ggiNEXT(outcomm1, type=1)
 outcomm2 <- iNEXT(comm4inext, q=2, conf=confnum, datatype="incidence_freq")
 ggiNEXT(outcomm2, type=1)
 
-ggiNEXT(outcomm0, type=1) # sample-size-based rarefaction/extrapolation curve
-ggiNEXT(outcomm1, type=1) # sample-size-based rarefaction/extrapolation curve
+ggiNEXT(outcomm0, type=1) # sample-size-based rarefaction/extrapolation curve:  species richness
+ggiNEXT(outcomm1, type=1) # sample-size-based rarefaction/extrapolation curve:  Shannon
+
 ggiNEXT(outcomm0, type=2) # sample completeness curve
 ggiNEXT(outcomm0, type=3) # coverage-based rarefaction/extrapolation curve
 
-outcomm0$DataInfo
-outcomm0$iNextEst
-outcomm0$AsyEst
+# outcomm0$DataInfo
+# outcomm0$iNextEst
+# outcomm0$AsyEst
 ```
 
 ```{r iNextPD test, eval=FALSE, include=FALSE}
@@ -359,6 +281,92 @@ ggiNEXT(out.inc, type=2, color.var="site") +
   theme(legend.position="none")
 
 ```
+
+
+
+```{r NMDS}
+### do NMDS analysis to quickly see patterns ####
+communityB <- community
+communityB[communityB>1] <- 1 # binary
+rownames(communityB) # 64 rows
+community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary=TRUE)
+community.jmds <- metaMDS(communityB, distance = "jaccard", binary = TRUE, previous.best = community.jmds)  # doesn't converge well, with final stress > 0.20
+stressplot(community.jmds)
+```
+
+```{r ordispider plot, }
+#### plot the communities
+levels(habitatN$Habitat)
+(sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
+colvec <- brewer.pal(5, "Set1")
+
+# with(habitatN, ordisurf(community.jmds, sprichness, main="NMDS - species richness contour", cex=0.5, col = "grey"))
+with(habitatN, ordisurf(community.jmds, Elevation_m, main=" NMDS - Altitude contour", cex=0.5, col = "grey"))
+
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
+
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
+
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
+
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
+
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
+
+with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
+
+```
+
+```{r}
+tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer.pal(6, "Dark2"))
+```
+
+Ordiellipse plots cover the 95% CIs for the species points, not the site points
+```{r ordiellipse plot, eval=FALSE, include=FALSE}
+#### plot the communities
+levels(habitatN$Habitat) 
+(sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
+
+with(habitatN, ordisurf(community.jmds, Elevation_m, main="", cex=0.5, col = "grey"))
+# with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("BB"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("CL"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("EC"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("JC"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkblue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("MF"))))
+
+with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=c("darkblue"), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+# with(habitatN, ordispider(community.jmds, Habitat, main="", show.groups=(c("NF"))))
+
+```
+
+If we want to identify individual points, we can use these commands. but not now.
+```{r ordiplots, eval=FALSE, include=FALSE}
+# These commands are ways to identify points 
+orditorp(community.jmds, labels = habitatN$Site, dis="sites", pcol = "gray")
+ordipointlabel(community.jmds, dis="sites")
+
+#p1 <- plot(community.jmds, dis="sites")
+#identify(p1, "sites") # interactive method to identify sites by row number. Click on the points that you want to identify. When you have clicked on all the points, click on the Finish button at top right of Plot window. 
+```
+
+
 
 
 
