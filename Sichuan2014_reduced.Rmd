@@ -1,23 +1,42 @@
 ---
-title: "Re2014Sichuan-MBC"
+title: "Sichuan2014_metabarcode pipeline"
+author: "Douglas Yu"
+date: "22/10/2017"
 output: html_document
 ---
 
-I have set up github repo on github.com/dougwyu/Sichuan2014
-Original filename:  Re2014_SiCMBC_Xiaoy0726.Rmd
+I have set up Github repo on github.com/dougwyu/Sichuan2014
+
+filename:  Sichuan2014_reduced.Rmd
+
 Make sure that Source option is set to `Chunk output in Console` and do not select `Show Previews inline`
 
 
 ## Tentative conclusions
 
-1) Mosaic forest compositions are largely driven by Bamboo communities, plus a bit more from the other plantations.   Do we have a list of what each MF is made of?
+1) Mosaic forest composition is indistinguishable from Natural forest, and significantly different from the monospecies 
+2) Mosaic forest has higher species richness and higher Shannon richness than the monospecies plantations:  JC, EC, and BB
+2) The source of the beta diversity in this system is entirely turnover, which means that each of the monospecies plantations has its own 
 
-## To do:
 
-1)  mvabund or boral to test for sig compositional differences between forest types (esp. btw MF and BB, JC, EU)
-2)  stacked barchart of multi-site beta diversity metrics
-3)  do this analysis with birds? 
-4)  also report Kat's results about mixed vs. mosaic?
+## To dos:
+
+1. *mvabund* *this software is more mature*
+    a. do model selection (drop1? cross validation?) to choose best model for explaining Sichuan2014 community:  habitatMFNF, elevation_m, weather_value, interactions
+    b. do model selection (drop1? cross validation?) to choose best model for explaining Sichuan2014 community:  Landsat variables, elevation_m, weather_value
+    c. can we calculate deviance explained from mvabund models?
+    d. (?) rewrite anova.manyglm code to run in parallel (might not be worth the effort)
+
+2. *boral*   *this software is new and is Bayesian, so might choke on our dataset*
+    a. do model selection (ssvs.index) to choose best model for explaining Sichuan2014 community:  habitatMFNF, elevation_m, weather_value, interactions
+    b. do model selection (ssvs.index) to choose best model for explaining Sichuan2014 community:  Landsat variables, elevation_m, weather_value
+    c. calculate deviance using res.cor$trace method
+    
+3. *SpeciesMix*  *cannot get this to run*
+    a. cluster the 746 OTUs into archetypal Groups that respond similarly to the environment and then see if the groups have any taxonomic affinities
+
+4. Also do these analyses with Fangyuan's bird data?  (prob not)
+5. Also include Kat's results about mixed vs. mosaic?  (prob not)
 
 
 ```{r setup, packages}
@@ -34,6 +53,7 @@ library(RColorBrewer)
 library(betapart)
 library(forcats)
 library(stringr)
+library(SpeciesMix)
 
 library(PDcalc)
 library(ape)
@@ -45,12 +65,13 @@ sessionInfo()
 ```{r load and format data}
 # help(read_tsv)
 # this inputfile contains taxononomic assignments in the lower rows
-# command from readr package, and you tell the command how to format the columns
 
 # inputfile <- "./data/Sichuan2014_MBC_OTU443.txt" # post phyloseq filtering and filtering for trees
 # inputfile <- "./data/2014MBC_otu746table_with_Env20.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads
+
 inputfile <- "./data/2014MBC_20reads_746otu_Landsat.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads, with landsat data
 
+# command from readr package, with options on formatting the columns
 gfgMB <- read_tsv(
    inputfile, col_names = TRUE, na = "NA",
    col_types = cols(
@@ -100,63 +121,6 @@ communityAll <- sapply(communityAll, function(x) as.numeric(as.character(x))) # 
 communityAll <- as.data.frame(communityAll) # then convert to df
 ```
 
-We used this code chunk to filter out small OTUs, leaving behind 746 OTUs. We don't need to run this code chunk because we've already done this and created the OTU table that we imported above.
-```{r phyloseq filtering, eval=FALSE, include=FALSE}
-# no longer need to run this code chunk because we have already used phyloseq to filter out small OTUs
-# gsub("[[:punct:][:space:]]", "-", Sys.time()) #time will be shown
-# source("https://bioconductor.org/biocLite.R") # to install phyloseq package
-# biocLite("phyloseq")
-library("phyloseq"); packageVersion("phyloseq")
-library("data.table"); packageVersion("data.table")
-library("ggplot2"); packageVersion("ggplot2")
-
-TotalCounts <- c(colSums(communityAll))
-
-tdt = data.table(colnames(communityAll),TotalCounts = colSums(communityAll),OTU = colnames(communityAll))
-
-ggplot(tdt, aes(TotalCounts)) +  # histogram
-  geom_histogram() + 
-  ggtitle("Histogram of Total Counts")
-
-taxcumsum = tdt[, .N, by = TotalCounts]
-setkey(taxcumsum, TotalCounts)
-taxcumsum[, CumSum := cumsum(N)]
-# Define the plot
-pCumSum = ggplot(taxcumsum, aes(TotalCounts, CumSum)) + 
-  geom_point() +
-  xlab("Filtering Threshold, Minimum Total Counts") +
-  ylab("OTUs Filtered") +
-  ggtitle("OTUs that would be filtered vs. the minimum count threshold")
-pCumSum
-pCumSum + xlim(0, 100)
-pCumSum + xlim(0, 200)
-pCumSum + xlim(0, 300)
-pCumSum + xlim(0, 400)
-pCumSum + xlim(0, 600)
-pCumSum + xlim(0, 800)
-pCumSum + xlim(0, 2000)
-pCumSum + xlim(0, 20000)
-
-## phyloseq-class experiment-level object
-## otu_table()   OTU Table:         [ 3426 taxa and 34 samples ]
-## sample_data() Sample Data:       [ 34 samples by 11 sample variables ]
-## tax_table()   Taxonomy Table:    [ 3426 taxa by 7 taxonomic ranks ]
-## phy_tree()    Phylogenetic Tree: [ 3426 tips and 3424 internal nodes ]
-
-## from above result, we decide to use 2 thresholds to filter those small otus: 120 (>=120) and 40 (>=40)
-## 40 gives us a table with 443 OTUs. This is the table that we are already reading. 
-commMBC.120 <- communityAll[ ,colSums(communityAll)>=120] ## 336 otus remain
-commMBC.120 <- commMBC.120[ rowSums(commMBC.120)>0,]
-rowSums(commMBC.120)
-commMBC.120 <- commMBC.120[-38,] #number 38 site has very few otu and reads number
-
-commMBC.40 <- communityAll[ ,colSums(communityAll)>=40] ## 448 otus remain
-commMBC.40 <- commMBC.40[ rowSums(commMBC.40)>0,]
-rowSums(commMBC.40)
-commMBC.40 <- commMBC.40[-38,]
-colnames(commMBC.40)
-
-```
 
 Filter out sites with (1) very low numbers of reads, (2) very low numbers of species
 ```{r filter out sites, }
@@ -396,21 +360,14 @@ ggiNEXT(out.inc, type=2, color.var="site") +
 
 ```
 
+
+
 ## mvabund
 Test for significant effects of elevation, forest type, and landsat channels.  Start with a subset of OTUs (n=100) to make things run faster, then when the model is working, run with full database
 
 anova.manyglm options
     *test = "score"* # anova.manyglm help file says that test="wald" is poor for binomial data under some conditions. "score" is the better alternative. 
     *cor.type = "shrink"* # estimates correlations between species, but in an efficient way, which is necessary for our kind of dataset, where there are many more species than there are samples
-
-use cross-validation for manyglm model selection
-rewrite anova.manyglm to run in parallel, or use manyany, which has a built-in parallel option
-
-
-
-- mvabund::traitglm with no trait matrix (= LASSO-GLM, method="cv.glm1path", slidesday4:16.12)   # this is likely the most mature way forward, given that mvabund has been in development longer than boral has been.  i might have this wrong, but so far, it looks like a cross validation method, with shrinkage, to estimate environmental coefficients, one for each species.  
-- boral::boral with ssvs   # this seems quite new, and might not be ready for large datasets.  it might also choke on our dataset
-- SpeciesMix  # a different approach:  to cluster the OTUs into archetypal Groups that respond similarly to the environment.  after doing this, it would be interesting to look at the taxonomies.  we don't have trait data, which is a shame.  
 
 
 ```{r mvabund explorations}
@@ -514,8 +471,6 @@ for (iVar in 1:ncol(habitatN.marg.mvb)) {
 Separately, weather, Elevation, and Simpson_evenness are relatively more important
                Habitat          weather_value            Elevation_m Simpson_evenness_index 
               559.7001               991.6422               967.9322              1118.6665 
-
-
 
 
 Mosaic forest is significantly different from all other habitat types, although 
@@ -672,35 +627,117 @@ anova(modNFJC1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoo
 ```
 
 
-Trying another way to test for sig difference between forests. Create a forest-only dataset, then test for a habitat effect with increasingly collapsed levels, testing for differences with anova between two models
+Trying another way to test for sig difference between forests. Create a forest-only dataset, then test for a habitat effect with increasingly collapsed levels, testing for sig differences between nested models. Outcome:  a model with MF and NF combined into one level is not sig different from one with MF and NF separate.  But all other forest types (EC, JC, BB) are sig different from the MFNF level. 
 ```{r}
 # MF vs BB
 communityB_forest <- communityB %>% filter(!(habitatN$Habitat %in% c("CL")))
 habitatN_forest <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(!(habitatN$Habitat %in% c("CL"))) # predictors can be changed
 habitatN_forest <- droplevels(habitatN_forest)
-communityB_forest.mvb <- communityB_forest[ , 1:350] %>% mvabund() # partial dataset for debugging
-# communityB_MFBB.mvb <- communityB_MFBB %>% mvabund() # full dataset
+communityB_forest.mvb <- communityB_forest[ , 1:150] %>% mvabund() # partial dataset for debugging
+communityB_forest.mvb <- communityB_forest.mvb %>% mvabund() # full dataset
 nboot <- 100 # set to 100 for debugging
 # nboot <- 999 # set to 999 for publication
 
-mod_forest_BBECJC.mvb <- manyglm(communityB_forest.mvb ~ Habitat, data = habitatN_forest, family = binomial("cloglog"))
-plot(modMFBB1.mvb)
-anova(modMFBB1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # BB is sig diff from MF
+mod_forest_BBECJCMFNF.mvb <- manyglm(communityB_forest.mvb ~ Habitat, data = habitatN_forest, family = binomial("cloglog"))
+plot(mod_forest_BBECJCMFNF.mvb)
+anova(mod_forest_BBECJCMFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # p = 0.01 for nBoot = 100
+
+# combine MF and NF
+habitatN_forest$HabitatMFNF <- fct_collapse(habitatN_forest$Habitat, MFNF = c("MF", "NF"))
+fct_count(habitatN_forest$HabitatMFNF)
+
+mod_forest_BBECJC_MFNF.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNF, data = habitatN_forest, family = binomial("cloglog"))
+plot(mod_forest_BBECJC_MFNF.mvb)
+anova(mod_forest_BBECJCMFNF.mvb, mod_forest_BBECJC_MFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 299)  # no sig diff btw the two models (p=0.087 with nBoot = 299 and all 746 OTUs). Suggests weak or no diff btw MF and NF, which is reasonable.
+
+# combine MF, NF, and BB
+habitatN_forest$HabitatMFNFBB <- fct_collapse(habitatN_forest$HabitatMFNF, MFNFBB = c("MFNF", "BB"))
+fct_count(habitatN_forest$HabitatMFNFBB)
+
+mod_forest_ECJC_BBMFNF.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNFBB, data = habitatN_forest, family = binomial("cloglog"))
+plot(mod_forest_ECJC_BBMFNF.mvb)
+anova(mod_forest_BBECJC_MFNF.mvb, mod_forest_ECJC_BBMFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 299)  # sig diff btw the two models (p=0.017 with nBoot = 299 and all 746 OTUs), so do not combine BB with MFNF
+
+# combine MF, NF, and JC
+habitatN_forest$HabitatMFNFJC <- fct_collapse(habitatN_forest$HabitatMFNF, MFNFJC = c("MFNF", "JC"))
+fct_count(habitatN_forest$HabitatMFNFJC)
+
+mod_forest_ECBB_MFNFJC.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNFJC, data = habitatN_forest, family = binomial("cloglog"))
+plot(mod_forest_ECBB_MFNFJC.mvb)
+anova(mod_forest_BBECJC_MFNF.mvb, mod_forest_ECBB_MFNFJC.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 299)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all 746 OTUs). so do not combine JC with MFNF
+
+# combine MF, NF, and EC
+habitatN_forest$HabitatMFNFEC <- fct_collapse(habitatN_forest$HabitatMFNF, MFNFEC = c("MFNF", "EC"))
+fct_count(habitatN_forest$HabitatMFNFEC)
+
+mod_forest_BBJC_MFNFEC.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNFEC, data = habitatN_forest, family = binomial("cloglog"))
+plot(mod_forest_BBJC_MFNFEC.mvb)
+anova(mod_forest_BBECJC_MFNF.mvb, mod_forest_BBJC_MFNFEC.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 299)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all 746 OTUs). so do not combine EC with MFNF. Use habitatN$HabitatMFNF as the forest predictor
+
+
+
+# now add the other predictors
+mod_forest_all4.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNF + Elevation_m + weather_value + Simpson_evenness_index, data = habitatN_forest, family = binomial("cloglog"))
+plot(mod_forest_all4.mvb)
+anova(mod_forest_all4.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 299)  # HabitatMFNF, Elevation_m, and weather_value are all highly significant (all 746 OTUs).  Simpson evenness index is not sig
+
+```
+
+```
+Time elapsed: 0 hr 4 min 47 sec
+Analysis of Variance Table
+
+Model: manyglm(formula = communityB_forest.mvb ~ HabitatMFNF + Elevation_m + weather_value + Simpson_evenness_index, family = binomial("cloglog"), data = habitatN_forest)
+
+Multivariate test:
+                       Res.Df Df.diff  score Pr(>score)   
+(Intercept)                48                             
+HabitatMFNF                45       3 263.05      0.003 **
+Elevation_m                44       1  93.46      0.003 **
+weather_value              42       2 152.86      0.003 **
+Simpson_evenness_index     41       1  49.67      0.333   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Arguments:
+ Test statistics calculated assuming correlated response via ridge regularization 
+ P-value calculated using 299 resampling iterations via PIT-trap resampling (to account for correlation in testing).
+```
+
+
+
+
+# SpeciesMix.  I cannot get this to run
+SpeciesMix(sp.form, sp.data, covar.data, G=2, pars=NA, em.prefit=TRUE, em.steps=3, em.refit = 1, dist="bernoulli" , est.var = FALSE,residuals=FALSE,trace=TRUE)
+```{r SpeciesMix spider exampl}
+data(spider)
+str(spider$abund)
+# all abundance variables are integers. SpeciesMix needs them to be numeric :(
+for(iVar in 1:ncol(spider$abund))
+  spider$abund[,iVar] = as.numeric(spider$abund[,iVar])
+str(spider$abund)
+library(SpeciesMix)
+ft.Mix2 = SpeciesMix(abund~soil.dry+moss+fallen.leaves+herb.layer,
+                       spider$abund,spider$x,dist="negbin",G=2)
+ft.Mix2
+ft.Mix2$coef
+ft.Mix2$tau
+ft.Mix2$sp.intercept
+names(ft.Mix2)
+
+```
+
+This does not run
+```{r, eval=FALSE}
+communityB_SM <- communityB[ , 1:100]
+str(communityB_SM) # all numeric
+ft.MixG2 = SpeciesMix(communityB_SM ~ Habitat + weather_value + Elevation_m, communityB_SM, habitatN, dist = "bernoulli", G = 2)
 
 ```
 
 
 
 
-
-SpeciesMix
-```{r}
-
-```
-
-
-
-boral:  Testing different errors
+boral:  Testing different error families.  Decided on family = "binomial" and row.effect = "random".  Do not run this chunk
 ```{r boral, cache=TRUE, eval=FALSE, include=FALSE}
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
 
@@ -756,7 +793,7 @@ lvsplot(commB.fit.b3, biplot=FALSE, col = as.numeric(habitatN$Habitat))
 Poisson and Binomial to produce the best residuals. I re-ran with more iterations, and Binomial had the best (slightly) residuals.  So i have settled on Binomial, which is expected.
 ```{r boral high iterations, eval=FALSE}
 
-# colnames(community) <- c(1:443) 
+# colnames(community) <- c(1:443)  
 # colnames(communityB) <- c(1:443)
 
 # mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
@@ -790,14 +827,18 @@ saveRDS(commB.fit.b3.4, "analysis/commB.fit.b3.4.RDS")
 # commB.fit.b3.4 <- readRDS("commB.fit.b3.4.RDS")
 ```
 
+
+
+## START HERE:  Do constrained ordination with ssvs.index and calculate variance explained
+
 Constrained ordination
 ```{r constrained boral ordination,}
-#### Binomial
+#### Binomial 
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
 
-X <- scale(habitatN$Altitude, scale = FALSE)
+X <- scale(habitatN$Elevation_m, scale = FALSE)
 
-commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control, calc.ics = TRUE, save.model = TRUE)
+commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "random", mcmc.control = mcmc.control, calc.ics = TRUE, save.model = TRUE)
 
 summary(commB.fit.b3.X)
 
@@ -1061,6 +1102,69 @@ lvsplot(commB.forest.fit.b3.4.fixed, biplot=FALSE, col = as.numeric(habitatNfore
 plot(commB.forest.fit.b3.4.fixed[["lv.median"]][,2] ~ commB.forest.fit.b3.4.fixed[["lv.median"]][,1], col = as.numeric(habitatNforest$Habitat), pch = 16)  # to get just points, which we can then format as we want
 par(mfrow = c(1,1))
 saveRDS(commB.forest.fit.b3.4.fixed, "analysis/commB.forest.fit.b3.4.fixed.RDS")
+```
+
+
+____________________________________
+Ignore all code below this line
+____________________________________
+
+We used this code chunk to filter out small OTUs, leaving behind 746 OTUs. We don't need to run this code chunk because we've already done this and created the OTU table that we imported above.
+```{r phyloseq filtering, eval=FALSE, include=FALSE}
+# no longer need to run this code chunk because we have already used phyloseq to filter out small OTUs
+# gsub("[[:punct:][:space:]]", "-", Sys.time()) #time will be shown
+# source("https://bioconductor.org/biocLite.R") # to install phyloseq package
+# biocLite("phyloseq")
+library("phyloseq"); packageVersion("phyloseq")
+library("data.table"); packageVersion("data.table")
+library("ggplot2"); packageVersion("ggplot2")
+
+TotalCounts <- c(colSums(communityAll))
+
+tdt = data.table(colnames(communityAll),TotalCounts = colSums(communityAll),OTU = colnames(communityAll))
+
+ggplot(tdt, aes(TotalCounts)) +  # histogram
+  geom_histogram() + 
+  ggtitle("Histogram of Total Counts")
+
+taxcumsum = tdt[, .N, by = TotalCounts]
+setkey(taxcumsum, TotalCounts)
+taxcumsum[, CumSum := cumsum(N)]
+# Define the plot
+pCumSum = ggplot(taxcumsum, aes(TotalCounts, CumSum)) + 
+  geom_point() +
+  xlab("Filtering Threshold, Minimum Total Counts") +
+  ylab("OTUs Filtered") +
+  ggtitle("OTUs that would be filtered vs. the minimum count threshold")
+pCumSum
+pCumSum + xlim(0, 100)
+pCumSum + xlim(0, 200)
+pCumSum + xlim(0, 300)
+pCumSum + xlim(0, 400)
+pCumSum + xlim(0, 600)
+pCumSum + xlim(0, 800)
+pCumSum + xlim(0, 2000)
+pCumSum + xlim(0, 20000)
+
+## phyloseq-class experiment-level object
+## otu_table()   OTU Table:         [ 3426 taxa and 34 samples ]
+## sample_data() Sample Data:       [ 34 samples by 11 sample variables ]
+## tax_table()   Taxonomy Table:    [ 3426 taxa by 7 taxonomic ranks ]
+## phy_tree()    Phylogenetic Tree: [ 3426 tips and 3424 internal nodes ]
+
+## from above result, we decide to use 2 thresholds to filter those small otus: 120 (>=120) and 40 (>=40)
+## 40 gives us a table with 443 OTUs. This is the table that we are already reading. 
+commMBC.120 <- communityAll[ ,colSums(communityAll)>=120] ## 336 otus remain
+commMBC.120 <- commMBC.120[ rowSums(commMBC.120)>0,]
+rowSums(commMBC.120)
+commMBC.120 <- commMBC.120[-38,] #number 38 site has very few otu and reads number
+
+commMBC.40 <- communityAll[ ,colSums(communityAll)>=40] ## 448 otus remain
+commMBC.40 <- commMBC.40[ rowSums(commMBC.40)>0,]
+rowSums(commMBC.40)
+commMBC.40 <- commMBC.40[-38,]
+colnames(commMBC.40)
+
 ```
 
 
