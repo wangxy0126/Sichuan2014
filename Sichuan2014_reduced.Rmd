@@ -32,6 +32,8 @@ library(boral)
 library(mvabund)
 library(RColorBrewer)
 library(betapart)
+library(forcats)
+library(stringr)
 
 library(PDcalc)
 library(ape)
@@ -48,18 +50,6 @@ sessionInfo()
 # inputfile <- "./data/Sichuan2014_MBC_OTU443.txt" # post phyloseq filtering and filtering for trees
 # inputfile <- "./data/2014MBC_otu746table_with_Env20.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads
 inputfile <- "./data/2014MBC_20reads_746otu_Landsat.txt" # post phyloseq filtering and filtering for trees, using final bioinformatics pipeline with vsearch and RDP Classifier and phyloseq at min20reads, with landsat data
-
-
-gfgMB <- read_tsv(
-  inputfile, col_names = TRUE, na = "NA",
-  col_types = cols(
-    Site = col_character(),
-    Habitat = col_factor(c("BB", "CL", "EC", "JC", "MF", "NF")),
-    Type = col_factor(c("1", "2", "3", "4", "5", "6")),
-    Altitude = col_integer(),
-    Weather = col_integer()
-    )
-)
 
 gfgMB <- read_tsv(
    inputfile, col_names = TRUE, na = "NA",
@@ -79,13 +69,14 @@ gfgMB <- read_tsv(
 
 gfgMB <- tbl_df(gfgMB)
 
-# with(gfgMB, plot(Altitude ~ Elevation_m, col=as.numeric(Habitat)))
+# with(gfgMB, plot(Altitude ~ Elevation_m, col=as.numeric(Habitat)))  # Altitude variable is not reliable;  use Elevation_m instead, which is calculated from DEM
 ```
 
 ```{r environment dataset}
 # make environment dataset
 habitat <- gfgMB %>% dplyr::select(Site:Simpson_evenness_index)
 habitat <- habitat %>% dplyr::filter(!is.na(Habitat)) # remove taxonomy rows
+colnames(habitat)[11:80] <- paste0("x", colnames(habitat)[11:80]) # column names need to start with a letter
 ```
 
 ```{r community build}
@@ -109,7 +100,7 @@ communityAll <- sapply(communityAll, function(x) as.numeric(as.character(x))) # 
 communityAll <- as.data.frame(communityAll) # then convert to df
 ```
 
-We used this code chunk to filter out small OTUs, leaving behind 443 OTUs. This is the dataset that we are importing as Sichuan2014_MBC_OTU443.txt.
+We used this code chunk to filter out small OTUs, leaving behind 746 OTUs. We don't need to run this code chunk because we've already done this and created the OTU table that we imported above.
 ```{r phyloseq filtering, eval=FALSE, include=FALSE}
 # no longer need to run this code chunk because we have already used phyloseq to filter out small OTUs
 # gsub("[[:punct:][:space:]]", "-", Sys.time()) #time will be shown
@@ -364,7 +355,7 @@ outcomm0$AsyEst
 ```
 
 ```{r iNextPD test, eval=FALSE, include=FALSE}
-data(bird)
+data(bird) 
 str(bird)
 bird.lab <- rownames(bird$abun)
 bird.phy <- ade4::newick2phylog(bird$tre)
@@ -405,7 +396,311 @@ ggiNEXT(out.inc, type=2, color.var="site") +
 
 ```
 
-Testing different errors
+## mvabund
+Test for significant effects of elevation, forest type, and landsat channels.  Start with a subset of OTUs (n=100) to make things run faster, then when the model is working, run with full database
+
+anova.manyglm options
+    *test = "score"* # anova.manyglm help file says that test="wald" is poor for binomial data under some conditions. "score" is the better alternative. 
+    *cor.type = "shrink"* # estimates correlations between species, but in an efficient way, which is necessary for our kind of dataset, where there are many more species than there are samples
+
+use cross-validation for manyglm model selection
+rewrite anova.manyglm to run in parallel, or use manyany, which has a built-in parallel option
+
+
+
+- mvabund::traitglm with no trait matrix (= LASSO-GLM, method="cv.glm1path", slidesday4:16.12)   # this is likely the most mature way forward, given that mvabund has been in development longer than boral has been.  i might have this wrong, but so far, it looks like a cross validation method, with shrinkage, to estimate environmental coefficients, one for each species.  
+- boral::boral with ssvs   # this seems quite new, and might not be ready for large datasets.  it might also choke on our dataset
+- SpeciesMix  # a different approach:  to cluster the OTUs into archetypal Groups that respond similarly to the environment.  after doing this, it would be interesting to look at the taxonomies.  we don't have trait data, which is a shame.  
+
+
+```{r mvabund explorations}
+communityB.mvb <- communityB[ , 1:100] %>% mvabund() # partial dataset for debugging
+# communityB.mvb <- communityB %>% mvabund()  # full dataset (runs slowly)
+nboot <- 50 # set to 50 for debugging
+# nboot <- 999 # set to 999 for publication
+# 
+habitatN.mvb <- habitatN %>% select(Habitat, weather_value, Elevation_m, x20150401b1m:Simpson_evenness_index)
+
+par(mfrow=c(1,1))
+meanvar.plot(communityB.mvb ~ habitatN.mvb$Habitat)
+abline(a = 0, b = 1, col = "green")
+fct_relevel(habitatN.mvb$Habitat, "MF") # make MF the reference level. doesn't work with summary.manyglm
+
+# test for significance of elevation and forest type
+mod1.mvb <- manyglm(communityB.mvb ~ 1, family = binomial("cloglog"))
+mod2.mvb <- manyglm(communityB.mvb ~ habitatN.mvb$Elevation_m, family = binomial("cloglog"))
+mod3.mvb <- manyglm(communityB.mvb ~ habitatN.mvb$Habitat, family = binomial("cloglog"))
+mod4.mvb <- manyglm(communityB.mvb ~ habitatN.mvb$Elevation_m + habitatN.mvb$Habitat, family = binomial("cloglog"))
+drop1(mod4.mvb)
+mod5.mvb <- manyglm(communityB.mvb ~ habitatN.mvb$Elevation_m * habitatN.mvb$Habitat, family = binomial("cloglog"))
+mod6.mvb <- manyglm(communityB.mvb ~ habitatN.mvb$weather_value, family = binomial("cloglog"))
+mod7.mvb <- manyglm(communityB.mvb ~ habitatN.mvb$Simpson_evenness_index, family = binomial("cloglog"))
+mod8.mvb <- manyglm(communityB.mvb ~ habitatN.mvb$Habitat * habitatN.mvb$Simpson_evenness_index, family = binomial("cloglog"))
+plot(mod1.mvb)
+plot(mod2.mvb)
+plot(mod3.mvb)
+plot(mod4.mvb) # the best residuals
+plot(mod5.mvb) # good residuals
+plot(mod6.mvb)
+plot(mod7.mvb)
+plot(mod8.mvb)
+anova(mod1.mvb, mod2.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Elevation is significant
+anova(mod2.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Elevation is significant
+anova(mod1.mvb, mod3.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Habitat is significant on its own
+anova(mod3.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Habitat is significant on its own
+anova(mod2.mvb, mod4.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Habitat is significant, even with Elevation present
+anova(mod4.mvb, mod5.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Habitat * Elevation interaction effect is significant (i suspect this is mainly due to CL)
+anova(mod5.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Habitat * Elevation interaction effect is significant (i suspect this is mainly due to CL)
+# summary(mod3.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # Habitat is significant on its own
+anova(mod6.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot) # weather has a sig effect
+anova(mod7.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot) # Simpson_evenness_index has a non-sig effect
+anova(mod8.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot) # Habitat * Simpson_evenness_index interaction has a sig effect
+
+```
+
+
+## calculate conditional and marginal effects of the main predictors
+## get a glm fit for a variable to get approx VIF’s
+```{r}
+ft.glm1 <- glm(communityB.mvb[, 1] ~ ., data = habitatN.mvb[c(1:3,74)], family = binomial)
+vif(ft.glm1)
+```
+                               GVIF Df GVIF^(1/(2*Df))
+Habitat                4.433146e+09  5        9.218732
+weather_value          4.433146e+09  2      258.034640
+Elevation_m            1.077532e+00  1        1.038042
+Simpson_evenness_index 1.000000e+00  1        1.000000
+
+These predictors are not strongly correlated, so we can calculate conditional effects
+
+```{r mvabund conditional effects}
+mod_cond1.mvb <- manyglm(communityB.mvb ~ ., data = habitatN.mvb[c(1:3,74)], family = binomial("cloglog")) # Habitat, weather_value, Elevation_m, Simpson_evenness_index
+plot(mod_cond1.mvb)
+summary(mod_cond1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot) 
+```
+
+I think that the p-values don't matter here, just the score value.  Habitat and Elevation are conditionally more important (i.e. when the other predictors are present in the model)
+Test statistics:
+                       score value Pr(>score)
+(Intercept)                 135.29          1
+HabitatCL                    62.11          1
+HabitatEC                    29.37          1
+HabitatJC                    15.18          1
+HabitatMF                    12.91          1
+HabitatNF                    30.97          1
+weather_valuesunny           37.24          1
+weather_valuerainy           43.99          1
+Elevation_m                 111.20          1
+Simpson_evenness_index       65.63          1
+Arguments:
+ Test statistics calculated assuming correlation matrix shrunk by parameter 0.93 
+ P-value calculated using 50 resampling iterations via pit.trap resampling (to account for correlation in testing).
+
+Test statistic:  564.7, p-value: 0.353 
+
+```{r mvabund marginal effects}
+habitatN.marg.mvb <- data.frame(habitatN.mvb[c(1:3,74)]) # this can be changed
+devs <- rep(NA, ncol(habitatN.marg.mvb))
+names(devs) <- colnames(habitatN.marg.mvb)
+
+for (iVar in 1:ncol(habitatN.marg.mvb)) {
+    mod_marg.glm <- manyglm(communityB.mvb ~ habitatN.marg.mvb[, iVar], data = habitatN.marg.mvb, family = binomial("cloglog"))
+    devs[iVar] <- -2 * sum(logLik(mod_marg.glm))
+}
+
+(devs <- devs + 2*sum(logLik(mod_cond1.mvb)))
+```
+
+Separately, weather, Elevation, and Simpson_evenness are relatively more important
+               Habitat          weather_value            Elevation_m Simpson_evenness_index 
+              559.7001               991.6422               967.9322              1118.6665 
+
+
+
+
+Mosaic forest is significantly different from all other habitat types, although 
+```{r MF vs BB, CL, EC, JC, NF}
+# MF vs BB
+communityB_MFBB <- communityB %>% filter(habitatN$Habitat %in% c("BB", "MF"))
+habitatN_MFBB <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("BB", "MF")) # predictors can be changed
+habitatN_MFBB <- droplevels(habitatN_MFBB)
+communityB_MFBB.mvb <- communityB_MFBB[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_MFBB.mvb <- communityB_MFBB %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modMFBB1.mvb <- manyglm(communityB_MFBB.mvb ~ Habitat, data = habitatN_MFBB, family = binomial("cloglog"))
+plot(modMFBB1.mvb)
+anova(modMFBB1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # BB is sig diff from MF
+
+# MF vs CL
+communityB_MFCL <- communityB %>% filter(habitatN$Habitat %in% c("CL", "MF"))
+habitatN_MFCL <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("CL", "MF")) # predictors can be changed
+habitatN_MFCL <- droplevels(habitatN_MFCL)
+communityB_MFCL.mvb <- communityB_MFCL[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_MFCL.mvb <- communityB_MFCL %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modMFCL1.mvb <- manyglm(communityB_MFCL.mvb ~ Habitat, data = habitatN_MFCL, family = binomial("cloglog"))
+plot(modMFCL1.mvb)
+anova(modMFCL1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # CL is sig diff from MF
+
+
+# MF vs EC
+communityB_MFEC <- communityB %>% filter(habitatN$Habitat %in% c("EC", "MF"))
+habitatN_MFEC <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("EC", "MF")) # predictors can be changed
+habitatN_MFEC <- droplevels(habitatN_MFEC)
+communityB_MFEC.mvb <- communityB_MFEC[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_MFEC.mvb <- communityB_MFEC %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modMFEC1.mvb <- manyglm(communityB_MFEC.mvb ~ Habitat, data = habitatN_MFEC, family = binomial("cloglog"))
+plot(modMFEC1.mvb)
+anova(modMFEC1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  
+# EC is sig diff from MF
+
+
+# MF vs JC
+communityB_MFJC <- communityB %>% filter(habitatN$Habitat %in% c("JC", "MF"))
+habitatN_MFJC <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("JC", "MF")) # predictors can be changed
+habitatN_MFJC <- droplevels(habitatN_MFJC)
+communityB_MFJC.mvb <- communityB_MFJC[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_MFJC.mvb <- communityB_MFJC %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modMFJC1.mvb <- manyglm(communityB_MFJC.mvb ~ Habitat, data = habitatN_MFJC, family = binomial("cloglog"))
+plot(modMFJC1.mvb)
+anova(modMFJC1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # JC is sig diff from MF
+
+
+# MF vs NF  ## Using the full community (746 OTUs and nBoot=999)
+communityB_MFNF <- communityB %>% filter(habitatN$Habitat %in% c("NF", "MF"))
+habitatN_MFNF <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("NF", "MF")) # predictors can be changed
+habitatN_MFNF <- droplevels(habitatN_MFNF)
+# communityB_MFNF.mvb <- communityB_MFNF[ , 1:350] %>% mvabund() # partial dataset for debugging
+communityB_MFNF.mvb <- communityB_MFNF %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modMFNF1.mvb <- manyglm(communityB_MFNF.mvb ~ Habitat, data = habitatN_MFNF, family = binomial("cloglog"))
+plot(modMFNF1.mvb)
+anova(modMFNF1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  
+# See results below for detail.  MF and NF sig diff at p=0.008 level 
+```
+
+```
+> anova(modMFNF1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 999)  
+
+Time elapsed: 0 hr 15 min 33 sec
+Analysis of Variance Table
+
+Model: manyglm(formula = communityB_MFNF.mvb ~ Habitat, family = binomial("cloglog"), 
+Model:     data = habitatN_MFNF)
+
+Multivariate test:
+            Res.Df Df.diff score Pr(>score)   
+(Intercept)     21                            
+Habitat         20       1   126      0.008 **
+ ---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Arguments:
+ Test statistics calculated assuming correlated response via ridge regularization 
+ P-value calculated using 999 resampling iterations via PIT-trap resampling (to account for correlation in testing).
+```
+
+
+Natural forest is significantly different from BB, CL, EC, and JC
+```{r NF vs BB, CL, EC, JC}
+# NF vs BB
+communityB_NFBB <- communityB %>% filter(habitatN$Habitat %in% c("BB", "NF"))
+habitatN_NFBB <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("BB", "NF")) # predictors can be changed
+habitatN_NFBB <- droplevels(habitatN_NFBB)
+communityB_NFBB.mvb <- communityB_NFBB[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_NFBB.mvb <- communityB_NFBB %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modNFBB1.mvb <- manyglm(communityB_NFBB.mvb ~ Habitat, data = habitatN_NFBB, family = binomial("cloglog"))
+plot(modNFBB1.mvb)
+anova(modNFBB1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # BB is sig diff from NF
+
+# NF vs CL
+communityB_NFCL <- communityB %>% filter(habitatN$Habitat %in% c("CL", "NF"))
+habitatN_NFCL <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("CL", "NF")) # predictors can be changed
+habitatN_NFCL <- droplevels(habitatN_NFCL)
+communityB_NFCL.mvb <- communityB_NFCL[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_NFCL.mvb <- communityB_NFCL %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modNFCL1.mvb <- manyglm(communityB_NFCL.mvb ~ Habitat, data = habitatN_NFCL, family = binomial("cloglog"))
+plot(modNFCL1.mvb)
+anova(modNFCL1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # CL is sig diff from NF
+
+
+# NF vs EC
+communityB_NFEC <- communityB %>% filter(habitatN$Habitat %in% c("EC", "NF"))
+habitatN_NFEC <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("EC", "NF")) # predictors can be changed
+habitatN_NFEC <- droplevels(habitatN_NFEC)
+communityB_NFEC.mvb <- communityB_NFEC[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_NFEC.mvb <- communityB_NFEC %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modNFEC1.mvb <- manyglm(communityB_NFEC.mvb ~ Habitat, data = habitatN_NFEC, family = binomial("cloglog"))
+plot(modNFEC1.mvb)
+anova(modNFEC1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  
+# EC is sig diff from NF
+
+
+# NF vs JC
+communityB_NFJC <- communityB %>% filter(habitatN$Habitat %in% c("JC", "NF"))
+habitatN_NFJC <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(habitatN$Habitat %in% c("JC", "NF")) # predictors can be changed
+habitatN_NFJC <- droplevels(habitatN_NFJC)
+communityB_NFJC.mvb <- communityB_NFJC[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_NFJC.mvb <- communityB_NFJC %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+modNFJC1.mvb <- manyglm(communityB_NFJC.mvb ~ Habitat, data = habitatN_NFJC, family = binomial("cloglog"))
+plot(modNFJC1.mvb)
+anova(modNFJC1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # JC is sig diff from NF
+
+```
+
+
+Trying another way to test for sig difference between forests. Create a forest-only dataset, then test for a habitat effect with increasingly collapsed levels, testing for differences with anova between two models
+```{r}
+# MF vs BB
+communityB_forest <- communityB %>% filter(!(habitatN$Habitat %in% c("CL")))
+habitatN_forest <- data.frame(habitatN.mvb[c(1:3,74)]) %>% filter(!(habitatN$Habitat %in% c("CL"))) # predictors can be changed
+habitatN_forest <- droplevels(habitatN_forest)
+communityB_forest.mvb <- communityB_forest[ , 1:350] %>% mvabund() # partial dataset for debugging
+# communityB_MFBB.mvb <- communityB_MFBB %>% mvabund() # full dataset
+nboot <- 100 # set to 100 for debugging
+# nboot <- 999 # set to 999 for publication
+
+mod_forest_BBECJC.mvb <- manyglm(communityB_forest.mvb ~ Habitat, data = habitatN_forest, family = binomial("cloglog"))
+plot(modMFBB1.mvb)
+anova(modMFBB1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # BB is sig diff from MF
+
+```
+
+
+
+
+
+SpeciesMix
+```{r}
+
+```
+
+
+
+boral:  Testing different errors
 ```{r boral, cache=TRUE, eval=FALSE, include=FALSE}
 mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
 
