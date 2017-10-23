@@ -14,22 +14,21 @@ Make sure that Source option is set to `Chunk output in Console` and do not sele
 
 ## Tentative conclusions
 
-1) Mosaic forest composition is indistinguishable from Natural forest, and significantly different from the monospecies 
-2) Mosaic forest has higher species richness and higher Shannon richness than the monospecies plantations:  JC, EC, and BB
-2) The source of the beta diversity in this system is entirely turnover, which means that each of the monospecies plantations has its own 
-
+1) Mosaic forest has higher species richness and higher Shannon richness than the monospecies plantations:  JC, EC, and BB
+2) Mosaic forest composition is more similar to Natural forest than any of the monospecies plantations are to Natural forest
+2) The source of the beta diversity in this system is entirely turnover, which means that each of the monospecies plantations has its own set of species
 
 ## To dos:
 
 1. *mvabund* *this software is more mature*
-    a. do model selection (drop1? cross validation?) to choose best model for explaining Sichuan2014 community:  habitatMFNF, elevation_m, weather_value, interactions
-    b. do model selection (drop1? cross validation?) to choose best model for explaining Sichuan2014 community:  Landsat variables, elevation_m, weather_value
+    a. do model selection (drop1? cross validation?) to choose best model for explaining Sichuan2014 community:  *habitat*, elevation_m, weather_value, interactions
+    b. do model selection (drop1? cross validation?) to choose best model for explaining Sichuan2014 community:  *Landsat variables*, elevation_m, weather_value
     c. can we calculate deviance explained from mvabund models?
     d. (?) rewrite anova.manyglm code to run in parallel (might not be worth the effort)
 
 2. *boral*   *this software is new and is Bayesian, so might choke on our dataset*
-    a. do model selection (ssvs.index) to choose best model for explaining Sichuan2014 community:  habitatMFNF, elevation_m, weather_value, interactions
-    b. do model selection (ssvs.index) to choose best model for explaining Sichuan2014 community:  Landsat variables, elevation_m, weather_value
+    a. do model selection (ssvs.index) to choose best model for explaining Sichuan2014 community:  *habitat*, elevation_m, weather_value, interactions
+    b. do model selection (ssvs.index) to choose best model for explaining Sichuan2014 community:  *Landsat variables*, elevation_m, weather_value
     c. calculate deviance using res.cor$trace method
     
 3. *SpeciesMix*  *cannot get this to run*
@@ -54,6 +53,7 @@ library(betapart)
 library(forcats)
 library(stringr)
 library(SpeciesMix)
+library(beepr)
 
 library(PDcalc)
 library(ape)
@@ -121,11 +121,21 @@ communityAll <- sapply(communityAll, function(x) as.numeric(as.character(x))) # 
 communityAll <- as.data.frame(communityAll) # then convert to df
 ```
 
+visualise a histogram of read number per OTU
+```{r histogram of otu read numbers}
+##### calculate distribution of read numbers per OTU to set minimum number 
+otureads <- c(colSums(communityAll)) # list of the reads per OTU
+sum(otureads) ## 1,900,539 reads total 
+otureads[otureads>5000] <- 5000 # to make the histogram readable
+otuhist <- hist(otureads, breaks = 100)
+text(otuhist$mids, otuhist$counts, cex = 0.5, otuhist$counts, adj = c(.5, -.5), col = "blue3")
+```
 
-Filter out sites with (1) very low numbers of reads, (2) very low numbers of species
+
+Filter out sites with (1) only 1 read, (2) very low numbers of species
 ```{r filter out sites, }
 community <- communityAll
-community[community < 3] <- 0 # set small cells to 0
+community[community < 2] <- 0 # set small cells to 0
 habitat$rowsums <- rowSums(community)
 habitat$sprichness <- specnumber(community, MARGIN = 1) # number of species per site
 
@@ -135,7 +145,7 @@ community <- community %>% dplyr::filter(habitat$rowsums > 100)
 habitatN <- habitat %>% dplyr::filter(habitat$rowsums > 100)
 rowSums(community)
 
-# keep only sites that have >=5 species (removed 68 - 64 = 4 sites)
+# keep only sites that have >=5 species (removed 68 - 65 = 3 sites)
 community <- community %>% dplyr::filter(habitatN$sprichness >= 5)
 habitatN <- habitatN %>% dplyr::filter(habitatN$sprichness >= 5)
 
@@ -169,7 +179,7 @@ write.table(habitatN, "GDM_environment.txt", sep = "\t")
 ```{r make presence/absence dataset}
 communityB <- community
 communityB[communityB>1] <- 1 # binary
-rownames(communityB) # 64 rows
+rownames(communityB) # 65 rows = sites
 ```
 
 ```{r}
@@ -181,17 +191,17 @@ beanplot(specnumber(communityB)~habitatN$Habitat, col = c("grey", "white"))
 (pool1 <- specpool(communityB, habitatN$Habitat))
 ```
 
-   Species     chao   chao.se    jack1 jack1.se    jack2     boot  boot.se  n
-BB     131 344.4222  65.95468 218.1111 34.50103 280.7222 167.1569 15.33980  9
-CL     271 519.8889  55.57037 420.3333 45.49188 520.3714 334.5948 21.47996 15
-EC      88 149.7347  22.81217 135.1429 22.58589 161.9286 108.8202 11.28787  7
-JC     124 345.4171  72.52752 206.7273 33.42192 268.6636 158.0417 15.29339 11
-MF     161 536.5556 108.47768 276.5556 45.25047 364.0556 208.2756 18.89686  9
-NF     259 677.2722  92.87942 432.5385 60.39515 561.3654 330.4070 26.96634 13
+   Species     chao  chao.se    jack1 jack1.se    jack2     boot  boot.se  n
+BB     137 363.6889 69.50715 226.7778 34.89384 291.7222 174.2532 15.27638  9
+CL     278 524.8667 54.81533 428.2667 45.52196 528.3667 342.0398 21.41191 15
+EC      92 155.2922 22.94547 140.8571 23.17986 168.4762 113.6148 11.54500  7
+JC     129 375.4171 79.67636 216.2727 35.35885 282.3000 164.7940 16.09204 11
+MF     167 498.6135 92.03585 283.4444 44.96363 369.6806 214.9656 18.95118  9
+NF     270 686.0442 90.03457 450.1429 62.64404 583.1978 344.1902 28.74643 14
 
 
 ```{r iNEXT}
-# # example for incidence based data
+# # example for incidence based data 
 # data(ant)
 # str(ant)
 # t <- seq(1, 700, by=10)
@@ -289,7 +299,7 @@ ggiNEXT(out.inc, type=2, color.var="site") +
 
 ```
 
-# Beta diversity
+# Beta diversity turnover versus nestedness
 
 ## Run tabasco before removing zerotons and singletons
 ```{r}
@@ -299,12 +309,108 @@ stressplot(community.jmds)
 tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer.pal(3, "Oranges"))
 ```
 
+## Betapart analysis before removing zerotons and singletons
+```{r betapart}
+communityBbetapart <- bind_cols(habitatN, communityB) 
+communityBbetapart <- communityBbetapart %>% dplyr::select(-c(Habitat:sprichness))
+
+JCNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("JC", "NF")) %>% column_to_rownames(var="Site")
+BBNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("BB", "NF")) %>% column_to_rownames(var="Site")
+CLNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("CL", "NF")) %>% column_to_rownames(var="Site")
+ECNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("EC", "NF")) %>% column_to_rownames(var="Site")
+MFNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("MF", "NF")) %>% column_to_rownames(var="Site")
+
+JCNF.multi.dist <- beta.multi(JCNF, index.family="jac")
+BBNF.multi.dist <- beta.multi(BBNF, index.family="jac")
+CLNF.multi.dist <- beta.multi(CLNF, index.family="jac")
+ECNF.multi.dist <- beta.multi(ECNF, index.family="jac")
+MFNF.multi.dist <- beta.multi(MFNF, index.family="jac")
+
+multi.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, CLNF = CLNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
+
+
+ALL.dist <- communityBbetapart %>% column_to_rownames(var="Site") %>% beta.pair(index.family="jac")
+ALL.dist.subset <- ALL.dist[["beta.jne"]]
+ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset)
+ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
+stressplot(ALL.dist.jne.jmds)
+ALL.dist.subset <- ALL.dist[["beta.jtu"]]
+ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset)
+ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
+stressplot(ALL.dist.jtu.jmds)
+
+
+# , ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4)
+par(mfrow=c(2,2))
+with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white"))
+# plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+
+plot(ALL.dist.jtu.jmds, main = "Turnover beta diversity only")
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+    
+plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only")
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
+    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
+    
+par(mfrow=c(1,1))
+
+```
+
+Total beta diversity NMDS is correlated with turnover-only beta diversity 
+```{r}
+protest(community.jmds, ALL.dist.jtu.jmds)
+```
+
+Call:
+protest(X = community.jmds, Y = ALL.dist.jtu.jmds) 
+
+Procrustes Sum of Squares (m12 squared):        0.0779 
+Correlation in a symmetric Procrustes rotation: 0.9603 
+Significance:  0.001 
+
+Permutation: free
+Number of permutations: 999
+
+Total beta diversity NMDS is not correlated with nestedness-only beta diversity
+```{r}
+protest(community.jmds, ALL.dist.jne.jmds)
+```
+Call:
+protest(X = community.jmds, Y = ALL.dist.jne.jmds) 
+
+Procrustes Sum of Squares (m12 squared):        0.9894 
+Correlation in a symmetric Procrustes rotation: 0.1029 
+Significance:  0.767 
+
+Permutation: free
+Number of permutations: 999
+
+
+# Beta diversity UNCONSTRAINED ordination
+
+############ IMPORTANT #####################################
 ## For NMDS, mvabund, and boral analyses, remove zerotons and singletons
+Should be left with 358 species (variables)
 ```{r remove zerotons and singletons from communityB}
 communityB <- communityB[, which(specnumber(communityB, MARGIN=2) > 1)]
 ```
 
-## NMDS 
+## NMDS ordination
 ```{r NMDS}
 ### do NMDS analysis to quickly see patterns ####
 community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary=TRUE)
@@ -314,7 +420,7 @@ stressplot(community.jmds)
 
 Ordispider plots connect sites from the same habitat types
 ```{r ordispider plot, }
-#### plot the communities
+#### plot the communities 
 levels(habitatN$Habitat)
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
 colvec <- brewer.pal(5, "Set1")
@@ -344,11 +450,11 @@ with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="
 
 Ordiellipse plots cover the 95% CIs for the species points, not the site points
 ```{r ordiellipse plot, }
-#### plot the communities
+#### plot the communities 
 levels(habitatN$Habitat) 
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
 
-with(habitatN, ordisurf(community.jmds, Elevation_m, main="", cex=0.5, col = "grey"))
+with(habitatN, ordisurf(community.jmds, Elevation_m, main="", main=" NMDS - Altitude contour", cex=0.5, col = "grey"))
 # with(habitat, ordisurf(community.jmds, Altitude, main="", cex=0.5))
 
 with(habitatN, ordiellipse(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
@@ -380,6 +486,100 @@ ordipointlabel(community.jmds, dis="sites")
 #p1 <- plot(community.jmds, dis="sites")
 #identify(p1, "sites") # interactive method to identify sites by row number. Click on the points that you want to identify. When you have clicked on all the points, click on the Finish button at top right of Plot window. 
 ```
+
+
+## boral
+Tested different error families (testing code is archived down below).  Based on residuals, decided on family = "binomial," which is good because the dataset is presence/absence. Using row.effect = "random" to get a composition-only analysis.   Now rerun with many more iterations
+
+# This takes a long time to run, should run overnight
+```{r boral high iterations, eval=FALSE}
+# mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123) # if i want to set a seed
+# mcmc.control <- list(n.burnin = 300, n.iteration = 1000, n.thin = 30) # for debugging
+
+# set up MCMC parameters
+mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
+
+# set up model
+commB.fit.b3.4.none <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "random", mcmc.control = mcmc.control4, save.model = TRUE); beep(sound = 8)
+
+# save output in case i want to do other analyses on it later
+saveRDS(commB.fit.b3.4.none, "analysis/commB.fit.b3.4.none.RDS")
+# commB.fit.b3.4.none <- readRDS("analysis/commB.fit.b3.4.none.RDS") # to restore
+
+summary(commB.fit.b3.4)
+par(mfrow = c(2,2))
+plot(commB.fit.b3.4) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+
+commB.fit.b3.4.none.ord <- lvsplot(commB.fit.b3.4, biplot=FALSE, col = as.numeric(habitatN$Habitat), return.vals = TRUE)
+
+
+# tried to plot with Habitat labels for each point instead of row numbers but can't get this to work. Something wrong with the format of the habitatN$habitat argument
+# plot(commB.fit.b3.4.none.ord$scaled.lvs, type = "n")
+# text(commB.fit.b3.4.none.ord$scaled.lvs[, 2] ~ commB.fit.b3.4.none.ord$scaled.lvs[, 1], habitatN$Habitat, col = as.numeric(habitatN$Habitat), cex = 1)
+```
+
+
+# Beta diversity CONSTRAINED ordination
+
+## boral with ssvs.index
+```{r constrained boral ordination,}
+# set up MCMC parameters
+mcmc.control <- list(n.burnin = 300, n.iteration = 1000, n.thin = 30)
+# mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
+# communityB <- communityB[, 1:150]
+
+# set up predictors
+habitat.ssvs <- habitatN %>% dplyr::select(Elevation_m, Simpson_evenness_index)
+habitat.ssvs$Elevation_m <- scale(habitatN$Elevation_m, scale = FALSE)
+habitat.ssvs$Simpson_evenness_index <- scale(habitatN$Simpson_evenness_index, scale = FALSE)
+X <- habitat.ssvs
+
+# set up model.  ssvs.index determines which environmental predictors i will estimate the probability of effect. I can do this for all species as a group or for each species individually.
+
+ssvsindex <- c(0, 0) # any ssvs.index integer = 0 (e.g. c(0, 0)) will estimate the probability of that environmental predictor being important for each species
+
+ssvsindex <- 1:ncol(X) # any ssvs.index integer above 0 (e.g. 1:ncol(X)) will estimate the probability of that environmental predictor being important over the *group* of species.
+
+set.prior <- list(type = c("normal","normal","normal","uniform"), hypparams = c(10, 10, 10, 30), ssvs.index = ssvsindex)  
+
+# $ssvs.gpcoefs.prob
+# Gp1 Gp2 
+#   0   0 
+
+commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "random", save.model = TRUE, calc.ics = FALSE, mcmc.control = mcmc.control, prior.control = set.prior); beep(1)
+
+summary(commB.fit.b3.X)
+summary(commB.fit.b3.X$ssvs.indcoefs.mean)
+
+par(mfrow = c(2,2))
+plot(commB.fit.b3.X) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+
+# latent variables plot.  This is an ordination after the effect of the environmental predictors (X) have been removed
+commB.fit.b3.X.lvs <- lvsplot(commB.fit.b3.X, biplot=FALSE, col = as.numeric(habitatN$Habitat), return.vals=TRUE)
+
+res.cors <- get.residual.cor(commB.fit.b3.4.none); beep(1) # from unconstrained boral ordination
+partRes.cors <- get.residual.cor(commB.fit.b3.X); beep(1) # from constrained ordination
+res.cors$trace
+partRes.cors$trace
+(res.cors$trace-partRes.cors$trace)/res.cors$trace
+```
+
+
+```{r boral constrained ord code}
+# how do the ordination scores relate to treatment effect?
+cbind(commB.fit.b3.X.biplot$scaled.lvs,habitatN$Habitat)
+par(mfrow = c(1,2))
+plot(commB.fit.b3.X.biplot$scaled.lvs[,1]~habitatN$Habitat)
+plot(commB.fit.b3.X.biplot$scaled.lvs[,2]~habitatN$Habitat)
+par(mfrow = c(1,1))
+cor(commB.fit.b3.X.biplot$scaled.lvs, as.numeric(habitatN$Habitat))
+# could even put a big arrow on the biplot in the direction of correlation
+
+
+```
+
 
 
 ## mvabund
@@ -589,7 +789,7 @@ Separately, weather, Elevation, and Simpson_evenness are relatively more importa
 
 Mosaic forest is significantly different from all other habitat types, although 
 ```{r MF vs BB, CL, EC, JC, NF}
-# MF vs BB
+# MF vs BB 
 communityB_MFBB <- communityB %>% dplyr::filter(habitatN$Habitat %in% c("BB", "MF"))
 habitatN_MFBB <- data.frame(habitatN.mvb[c(1:3,74)]) %>% dplyr::filter(habitatN$Habitat %in% c("BB", "MF")) # predictors can be changed
 habitatN_MFBB <- droplevels(habitatN_MFBB)
@@ -683,7 +883,7 @@ Arguments:
 
 Natural forest is significantly different from BB, CL, EC, and JC
 ```{r NF vs BB, CL, EC, JC}
-# NF vs BB
+# NF vs BB 
 communityB_NFBB <- communityB %>% dplyr::filter(habitatN$Habitat %in% c("BB", "NF"))
 habitatN_NFBB <- data.frame(habitatN.mvb[c(1:3,74)]) %>% dplyr::filter(habitatN$Habitat %in% c("BB", "NF")) # predictors can be changed
 habitatN_NFBB <- droplevels(habitatN_NFBB)
@@ -768,7 +968,7 @@ Arguments:
 # SpeciesMix.  I cannot get this to run
 SpeciesMix(sp.form, sp.data, covar.data, G=2, pars=NA, em.prefit=TRUE, em.steps=3, em.refit = 1, dist="bernoulli" , est.var = FALSE,residuals=FALSE,trace=TRUE)
 ```{r SpeciesMix spider exampl}
-data(spider)
+data(spider) 
 str(spider$abund)
 # all abundance variables are integers. SpeciesMix needs them to be numeric :(
 for(iVar in 1:ncol(spider$abund))
@@ -787,7 +987,7 @@ names(ft.Mix2)
 
 This does not run
 ```{r, eval=FALSE}
-communityB_SM <- communityB[ , 1:100]
+communityB_SM <- communityB[ , 1:100] 
 str(communityB_SM) # all numeric
 ft.MixG2 = SpeciesMix(communityB_SM ~ Habitat + weather_value + Elevation_m, communityB_SM, habitatN, dist = "bernoulli", G = 2)
 
@@ -796,231 +996,15 @@ ft.MixG2 = SpeciesMix(communityB_SM ~ Habitat + weather_value + Elevation_m, com
 
 
 
-boral:  Testing different error families.  Decided on family = "binomial" and row.effect = "random".  Do not run this chunk
-```{r boral, cache=TRUE, eval=FALSE, include=FALSE}
-mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
-
-# colnames(community) <- c(1:443)
-# colnames(communityB) <- c(1:443)
-
-#### Negative binomial 
-comm.fit.nb3 <- boral(community, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control) 
-latvarscomm.fit.nb3 <- comm.fit.nb3[["lv.median"]]
-summary(comm.fit.nb3)
-par(mfrow = c(2,2))
-plot(comm.fit.nb3) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-
-# par(mfrow = c(1,2))
-lvsplot(comm.fit.nb3, biplot=FALSE, col=as.numeric(habitatN$Habitat))
-# plot(lv2 ~ lv1, data = latvarscomm.fit.nb3, col=as.numeric(habitatN$Habitat))
-# par(mfrow = c(1,1))
-
-commB.fit.nb3 <- boral(communityB, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
-summary(commB.fit.nb3)
-par(mfrow = c(2,2))
-plot(commB.fit.nb3) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-lvsplot(commB.fit.nb3, biplot=FALSE)
-
-#### Poisson
-commB.fit.pb3 <- boral(communityB, family = "poisson", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
-summary(commB.fit.pb3)
-par(mfrow = c(2,2))
-plot(commB.fit.pb3) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-lvsplot(commB.fit.pb3, biplot=FALSE)
-
-#### Binomial
-commB.fit.b3 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "random", mcmc.control = mcmc.control) # row.eff = "random" makes this a compositional model (ignores differences in overall abundance across samples, which might help control for weather effects)
-summary(commB.fit.b3)
-par(mfrow = c(2,2))
-plot(commB.fit.b3) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-lvsplot(commB.fit.b3, biplot=FALSE, col = as.numeric(habitatN$Habitat))
-
-# #### Ordinal  # does not run, even overnight
-# communityO <- community+1
-# comm.fit.o3 <- boral(communityO, family = "ordinal", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
-# summary(comm.fit.o3)
-# par(mfrow = c(2,2))
-# plot(comm.fit.o3) ## Plots used in residual analysis, 
-# par(mfrow = c(1,1))
-# lvsplot(comm.fit.o3, biplot=FALSE)
-```
-
-Poisson and Binomial to produce the best residuals. I re-ran with more iterations, and Binomial had the best (slightly) residuals.  So i have settled on Binomial, which is expected.
-```{r boral high iterations, eval=FALSE}
-
-# colnames(community) <- c(1:443)  
-# colnames(communityB) <- c(1:443)
-
-# mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123)
-mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
-
-# #### Poisson
-# commB.fit.pb3.4 <- boral(communityB, family = "poisson", num.lv = 3, row.eff = "fixed", mcmc.control = mcmc.control4, save.model = TRUE)  # high iterations 
-# summary(commB.fit.pb3.4) 
-# par(mfrow = c(2,2))
-# plot(commB.fit.pb3.4) ## Plots used in residual analysis, 
-# par(mfrow = c(1,1))
-# mypalette <- brewer.pal(6, "Dark2")
-# par(mfrow = c(1,2))
-# lvsplot(commB.fit.pb3.4, col = as.numeric(habitatN$Habitat), pch = 16) # ind.spp = 5:  show top 5 most important indicator species
-# plot(commB.fit.pb3.4[["lv.median"]][,1] ~ commB.fit.pb3.4[["lv.median"]][,2], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
-# par(mfrow = c(1,1))
-# # saveRDS(commB.fit.pb3.4, "commB.fit.pb3.4.RDS")
-
-#### Binomial
-commB.fit.b3.4.none <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "none", mcmc.control = mcmc.control4, save.model = TRUE)
-summary(commB.fit.b3.4)
-par(mfrow = c(2,2))
-plot(commB.fit.b3.4) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-par(mfrow = c(1,2))
-lvsplot(commB.fit.b3.4, biplot=FALSE, col = as.numeric(habitatN$Habitat))
-plot(commB.fit.b3.4[["lv.median"]][,2] ~ commB.fit.b3.4[["lv.median"]][,1], col = as.numeric(habitatN$Habitat), pch = 16)  # to get just points, which we can then format as we want
-par(mfrow = c(1,1))
-saveRDS(commB.fit.b3.4, "analysis/commB.fit.b3.4.RDS")
-
-# commB.fit.b3.4 <- readRDS("commB.fit.b3.4.RDS")
-```
-
 
 
 ## START HERE:  Do constrained ordination with ssvs.index and calculate variance explained
 
-Constrained ordination
-```{r constrained boral ordination,}
-#### Binomial 
-mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
-
-X <- scale(habitatN$Elevation_m, scale = FALSE)
-
-commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "random", mcmc.control = mcmc.control, calc.ics = TRUE, save.model = TRUE)
-
-summary(commB.fit.b3.X)
-
-par(mfrow = c(2,2))
-plot(commB.fit.b3.X) ## Plots used in residual analysis, 
-par(mfrow = c(1,1))
-
-# latent variables plot
-lvsplot(commB.fit.b3.X, biplot=FALSE, col = as.numeric(habitatN$Habitat))
-commB.fit.b3.X.biplot <- lvsplot(commB.fit.b3.X, ind.spp=10, return.vals=TRUE)
-
-
-# DIY slightly fancier biplot
-par(mfrow=c(1,1))
-plot(commB.fit.b3.X.biplot$scaled.lvs,col=as.numeric(habitatN$Habitat),type="n",ylim=c(-2.1,1))
-text(commB.fit.b3.X.biplot$scaled.lvs[,1],commB.fit.b3.X.biplot$scaled.lvs[,2],rownames(communityB),
-     col=as.numeric(habitatN$Habitat),cex=0.75)
-arrows(0,0,commB.fit.b3.X.biplot$scaled.lv.coefs[,1],commB.fit.b3.X.biplot$scaled.lv.coefs[,2],
-       length=0.07,lwd=0.5)
-text(commB.fit.b3.X.biplot$scaled.lv.coefs[,1],commB.fit.b3.X.biplot$scaled.lv.coefs[,2],colnames(communityB),
-     cex=0.35)
-# I have too many arrows - should only choose the rows of $scaled.lv.coefs for the
-# important Orders (maybe just do the significant ones from manyglm???)
-
-# how do the ordination scores relate to treatment effect?
-cbind(commB.fit.b3.X.biplot$scaled.lvs,habitatN$Habitat)
-par(mfrow = c(1,2))
-plot(commB.fit.b3.X.biplot$scaled.lvs[,1]~habitatN$Habitat)
-plot(commB.fit.b3.X.biplot$scaled.lvs[,2]~habitatN$Habitat)
-par(mfrow = c(1,1))
-cor(commB.fit.b3.X.biplot$scaled.lvs, as.numeric(habitatN$Habitat))
-# could even put a big arrow on the biplot in the direction of correlation
-
-
-library(corrplot) ## For plotting correlations
-communityB.ord = boral(communityB, num.lv=2, family="negative.binomial", save.model=TRUE, row.eff="random", calc.ics = TRUE, mcmc.control = mcmc.control)
-res.cors <- get.residual.cor(communityB.ord)
-# saveRDS(communityB.ord, "analysis/communityB.ord.RDS")
-corrplot(res.cors$cor, title = "Residual correlations", type = "lower", diag = FALSE, mar = c(3,0.5,2,1), tl.srt = 45)
-summary(communityB.ord)
-
-
-communityB.partialOrd = boral(communityB, X = X, num.lv = 2, family = "negative.binomial", save.model = TRUE, row.eff = "random", calc.ics = TRUE, mcmc.control = mcmc.control)
-
-partRes.cors <- get.residual.cor(communityB.partialOrd)
-par(mfrow=c(1,2))
-corrplot(res.cors$cor, title = "Residual correlations",
-         type = "lower", diag = FALSE, mar = c(3,0.5,2,1), tl.srt = 45)
-corrplot(partRes.cors$cor, title = "Partial residual correlations",
-         type = "lower", diag = FALSE, mar = c(3,0.5,2,1), tl.srt = 45)
-
-summary(communityB.ord)$ics
-summary(communityB.partialOrd)$ics
-res.cors$trace
-partRes.cors$trace
-(res.cors$trace-partRes.cors$trace)/res.cors$trace
-```
 
 
 
 
 
-
-```{r betapart}
-communityBbetapart <- bind_cols(habitatN, communityB)
-communityBbetapart <- communityBbetapart %>% select(-c(Habitat:sprichness))
-
-JCNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("JC", "NF")) %>% column_to_rownames(var="Site")
-BBNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("BB", "NF")) %>% column_to_rownames(var="Site")
-CLNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("CL", "NF")) %>% column_to_rownames(var="Site")
-ECNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("EC", "NF")) %>% column_to_rownames(var="Site")
-MFNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("MF", "NF")) %>% column_to_rownames(var="Site")
-
-JCNF.multi.dist <- beta.multi(JCNF, index.family="jac")
-BBNF.multi.dist <- beta.multi(BBNF, index.family="jac")
-CLNF.multi.dist <- beta.multi(CLNF, index.family="jac")
-ECNF.multi.dist <- beta.multi(ECNF, index.family="jac")
-MFNF.multi.dist <- beta.multi(MFNF, index.family="jac")
-
-multi.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, CLNF = CLNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
-
-
-ALL.dist <- communityBbetapart %>% column_to_rownames(var="Site") %>% beta.pair(index.family="jac")
-ALL.dist.subset <- ALL.dist[["beta.jne"]]
-ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset)
-ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
-stressplot(ALL.dist.jne.jmds)
-ALL.dist.subset <- ALL.dist[["beta.jtu"]]
-ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset)
-ALL.dist.jtu.jmds <- metaMDS(ALL.dist.subset, previous.best = ALL.dist.jne.jmds)
-stressplot(ALL.dist.jtu.jmds)
-
-
-
-par(mfrow=c(2,2))
-with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4)))
-# plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
-    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
-    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
-    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
-    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
-    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
-    with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
-
-plot(ALL.dist.jtu.jmds, main = "Turnover beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
-    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
-    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
-    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
-    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
-    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
-    with(habitatN, ordispider(ALL.dist.jtu.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
-    
-plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only", ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4))
-    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
-    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
-    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
-    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("JC"))))
-    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("MF"))))
-    with(habitatN, ordispider(ALL.dist.jne.jmds, Habitat, cex=.5, draw="polygon", col="darkblue", alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("NF"))))
-    
-par(mfrow=c(1,1))
-
-```
 
 
 
@@ -1117,6 +1101,7 @@ plot(ALL.dist.jne.jmds, main = "Nestedness beta diversity only", ylim = c(-0.8, 
     
 par(mfrow=c(1,1))
 ```
+
 
 ```{r}
 protest(communityBforest.jmds, ALL.dist.jtu.jmds)
@@ -1224,6 +1209,60 @@ rowSums(commMBC.40)
 commMBC.40 <- commMBC.40[-38,]
 colnames(commMBC.40)
 
+```
+
+
+boral:  Tested different error families.  Decided on family = "binomial" and row.effect = "random".  
+```{r boral error tests, eval=FALSE, include=FALSE}
+mcmc.control <- list(n.burnin = 300, n.iteration = 3000, n.thin = 30)
+
+# colnames(community) <- c(1:443)
+# colnames(communityB) <- c(1:443)
+
+#### Negative binomial 
+comm.fit.nb3 <- boral(community, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control) 
+latvarscomm.fit.nb3 <- comm.fit.nb3[["lv.median"]]
+summary(comm.fit.nb3)
+par(mfrow = c(2,2))
+plot(comm.fit.nb3) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+
+# par(mfrow = c(1,2))
+lvsplot(comm.fit.nb3, biplot=FALSE, col=as.numeric(habitatN$Habitat))
+# plot(lv2 ~ lv1, data = latvarscomm.fit.nb3, col=as.numeric(habitatN$Habitat))
+# par(mfrow = c(1,1))
+
+commB.fit.nb3 <- boral(communityB, family = "negative.binomial", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+summary(commB.fit.nb3)
+par(mfrow = c(2,2))
+plot(commB.fit.nb3) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+lvsplot(commB.fit.nb3, biplot=FALSE)
+
+#### Poisson
+commB.fit.pb3 <- boral(communityB, family = "poisson", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+summary(commB.fit.pb3)
+par(mfrow = c(2,2))
+plot(commB.fit.pb3) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+lvsplot(commB.fit.pb3, biplot=FALSE)
+
+#### Binomial
+commB.fit.b3 <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "random", mcmc.control = mcmc.control) # row.eff = "random" makes this a compositional model (ignores differences in overall abundance across samples, which might help control for weather effects)
+summary(commB.fit.b3)
+par(mfrow = c(2,2))
+plot(commB.fit.b3) ## Plots used in residual analysis, 
+par(mfrow = c(1,1))
+commB.fit.b3.ord <- lvsplot(commB.fit.b3, biplot=FALSE, col = as.numeric(habitatN$Habitat), return.vals = TRUE)
+
+ #### Ordinal  # does not run, even overnight
+# communityO <- community+1
+# comm.fit.o3 <- boral(communityO, family = "ordinal", num.lv = 2, row.eff = "fixed", mcmc.control = mcmc.control)
+# summary(comm.fit.o3)
+# par(mfrow = c(2,2))
+# plot(comm.fit.o3) ## Plots used in residual analysis, 
+# par(mfrow = c(1,1))
+# lvsplot(comm.fit.o3, biplot=FALSE)
 ```
 
 
