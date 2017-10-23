@@ -291,11 +291,20 @@ ggiNEXT(out.inc, type=2, color.var="site") +
 
 # Beta diversity
 
+## Run tabasco before removing zerotons and singletons
+```{r}
+community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary=TRUE)
+community.jmds <- metaMDS(communityB, distance = "jaccard", binary = TRUE, previous.best = community.jmds)  # doesn't converge well, with final stress > 0.20
+stressplot(community.jmds)
+tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer.pal(3, "Oranges"))
+```
+
+## For NMDS, mvabund, and boral analyses, remove zerotons and singletons
 ```{r remove zerotons and singletons from communityB}
 communityB <- communityB[, which(specnumber(communityB, MARGIN=2) > 1)]
 ```
 
-## NMDS
+## NMDS 
 ```{r NMDS}
 ### do NMDS analysis to quickly see patterns ####
 community.jmds <- metaMDS(communityB, distance = "jaccard", trymax = 40, binary=TRUE)
@@ -303,6 +312,7 @@ community.jmds <- metaMDS(communityB, distance = "jaccard", binary = TRUE, previ
 stressplot(community.jmds)
 ```
 
+Ordispider plots connect sites from the same habitat types
 ```{r ordispider plot, }
 #### plot the communities
 levels(habitatN$Habitat)
@@ -332,12 +342,8 @@ with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col="
 
 ```
 
-```{r}
-tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer.pal(3, "Oranges"))
-```
-
 Ordiellipse plots cover the 95% CIs for the species points, not the site points
-```{r ordiellipse plot, eval=FALSE, include=FALSE}
+```{r ordiellipse plot, }
 #### plot the communities
 levels(habitatN$Habitat) 
 (sprichness <- specnumber(community, MARGIN = 1)) # number of species per site
@@ -384,79 +390,98 @@ Test for significant effects of elevation, forest type, and landsat channels.  S
     *cor.type = "shrink"* # estimates correlations between species, but in an efficient way, which is necessary for our kind of dataset, where there are many more species than there are samples
 
 ### First mvabund task is to test for significant differences among forest types within the *habitat* predictor. 
-Create a forest-only dataset (because it's obvious that cropland is different from the forests), then test for a habitat effect with increasingly collapsed levels, testing for sig differences between nested models. Outcome:  a model with MF and NF combined into one level is not sig different from one with MF and NF separate.  But all other forest types (EC, JC, BB) are sig different from the MFNF level. 
+Test for a habitat effect with increasingly collapsed levels, testing for sig differences between nested models. Outcome:  a model with MF and NF combined into one level is not sig different from one with MF and NF separate.  But all other forest types (EC, JC, BB) are sig different from the MFNF level. 
 
+```{r combine habitat levels}
+# communityB <- communityB[ , 1:150]  # comment away if i want to use the whole dataset.  this is to produce a partial dataset for debugging
+communityB.mvb <- mvabund(communityB) 
 
-
-```{r combine forest levels}
-# create forest-only datasets
-habitatN_forest <- habitatN %>% dplyr::select(Habitat, weather_value, Elevation_m, x20150401b1m:Simpson_evenness_index) # %>% dplyr::filter(!(habitatN$Habitat %in% c("CL"))) %>% droplevels()
-
-# originally wrote this code to examine only the forest habitats, but then i decided to include cropland too.  but i have not changed the names of the objects
-communityB_forest <- communityB # %>% dplyr::filter(!(habitatN$Habitat %in% c("CL")))
-# communityB_forest <- communityB_forest[ , 1:150]  # comment away if i want to use the whole dataset.  this is to produce a partial dataset for debugging
-n_communityB_forest <- apply(communityB_forest, 2, sum) # number of presences for each species
-communityB_forest <- communityB_forest[, n_communityB_forest > 1] # remove zerotons and singletons (species that appear in 0 or 1 row only)
-communityB_forest.mvb <- mvabund(communityB_forest) 
-
-nboot <- 299 # set to 299 for debugging
+nboot <- 299 # set to 20 for debugging (~7.5 - 11 mins for 299)
 # nboot <- 999 # set to 999 for publication
 
 
+# base model with no levels combined
+mod_BBCLECJCMFNF.mvb <- manyglm(communityB.mvb ~ Habitat, data = habitatN, family = binomial("cloglog"))
+plot(mod_BBCLECJCMFNF.mvb)
+anova(mod_BBCLECJCMFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # p = 0.003 for nBoot = 299, 11 mins.  The Habitat predictor has a sig effect
 
-mod_forest_BBECJCMFNF.mvb <- manyglm(communityB_forest.mvb ~ Habitat, data = habitatN_forest, family = binomial("cloglog"))
-plot(mod_forest_BBECJCMFNF.mvb)
-anova(mod_forest_BBECJCMFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # p = 0.003 for nBoot = 299.  The Habitat predictor has a sig effect
 
 # combine MF and NF
-habitatN_forest$HabitatMFNF <- fct_collapse(habitatN_forest$Habitat, MFNF = c("MF", "NF"))
-fct_count(habitatN_forest$HabitatMFNF)
+habitatN$HabitatMFNF <- fct_collapse(habitatN$Habitat, MFNF = c("MF", "NF"))
+fct_count(habitatN$HabitatMFNF)
 
-mod_forest_BBECJC_MFNF.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNF, data = habitatN_forest, family = binomial("cloglog"))
-plot(mod_forest_BBECJC_MFNF.mvb)
-anova(mod_forest_BBECJCMFNF.mvb, mod_forest_BBECJC_MFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # weakly sig diff btw the two models (p=0.013 with nBoot = 299 and all non singleton OTUs). Suggests weak or no diff btw MF and NF, after correction for multiple tests.
+mod_CLBBECJC_MFNF.mvb <- manyglm(communityB.mvb ~ HabitatMFNF, data = habitatN, family = binomial("cloglog"))
+plot(mod_CLBBECJC_MFNF.mvb)
+anova(mod_BBCLECJCMFNF.mvb, mod_CLBBECJC_MFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # weakly sig diff btw the two models (p=0.007 with nBoot = 299 and all non-singleton OTUs). Suggests weak diff btw MF and NF, after correction for multiple tests.
 
 # combine MF, NF, and BB
-habitatN_forest$HabitatMFNFBB <- fct_collapse(habitatN_forest$HabitatMFNF, MFNFBB = c("MFNF", "BB"))
-fct_count(habitatN_forest$HabitatMFNFBB)
+habitatN$HabitatMFNFBB <- fct_collapse(habitatN$Habitat, MFNFBB = c("MF", "NF", "BB"))
+fct_count(habitatN$HabitatMFNFBB)
 
-mod_forest_ECJC_BBMFNF.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNFBB, data = habitatN_forest, family = binomial("cloglog"))
-plot(mod_forest_ECJC_BBMFNF.mvb)
-anova(mod_forest_BBECJC_MFNF.mvb, mod_forest_ECJC_BBMFNF.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.017 with nBoot = 299 and all 746 OTUs), so do not combine BB with MFNF
+mod_CLECJC_MFNFBB.mvb <- manyglm(communityB.mvb ~ HabitatMFNFBB, data = habitatN, family = binomial("cloglog"))
+plot(mod_CLECJC_MFNFBB.mvb)
+anova(mod_CLBBECJC_MFNF.mvb, mod_CLECJC_MFNFBB.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all non-singleton OTUs), so do not combine BB with MFNF
+
+
 
 # combine MF, NF, and JC
-habitatN_forest$HabitatMFNFJC <- fct_collapse(habitatN_forest$HabitatMFNF, MFNFJC = c("MFNF", "JC"))
-fct_count(habitatN_forest$HabitatMFNFJC)
+habitatN$HabitatMFNFJC <- fct_collapse(habitatN$Habitat, MFNFJC = c("MF", "NF", "JC"))
+fct_count(habitatN$HabitatMFNFJC)
 
-mod_forest_ECBB_MFNFJC.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNFJC, data = habitatN_forest, family = binomial("cloglog"))
-plot(mod_forest_ECBB_MFNFJC.mvb)
-anova(mod_forest_BBECJC_MFNF.mvb, mod_forest_ECBB_MFNFJC.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all 746 OTUs). so do not combine JC with MFNF
+mod_CLECBB_MFNFJC.mvb <- manyglm(communityB.mvb ~ HabitatMFNFJC, data = habitatN, family = binomial("cloglog"))
+plot(mod_CLECBB_MFNFJC.mvb)
+anova(mod_CLBBECJC_MFNF.mvb, mod_CLECBB_MFNFJC.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all non-singleton OTUs). so do not combine JC with MFNF
 
 # combine MF, NF, and EC
-habitatN_forest$HabitatMFNFEC <- fct_collapse(habitatN_forest$HabitatMFNF, MFNFEC = c("MFNF", "EC"))
-fct_count(habitatN_forest$HabitatMFNFEC)
+habitatN$HabitatMFNFEC <- fct_collapse(habitatN$Habitat, MFNFEC = c("MF", "NF", "EC"))
+fct_count(habitatN$HabitatMFNFEC)
 
-mod_forest_BBJC_MFNFEC.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNFEC, data = habitatN_forest, family = binomial("cloglog"))
-plot(mod_forest_BBJC_MFNFEC.mvb)
-anova(mod_forest_BBECJC_MFNF.mvb, mod_forest_BBJC_MFNFEC.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all 746 OTUs). so do not combine EC with MFNF. Use habitatN$HabitatMFNF as the forest predictor
+mod_CLBBJC_MFNFEC.mvb <- manyglm(communityB.mvb ~ HabitatMFNFEC, data = habitatN, family = binomial("cloglog"))
+plot(mod_CLBBJC_MFNFEC.mvb)
+anova(mod_CLBBECJC_MFNF.mvb, mod_CLBBJC_MFNFEC.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all non-singleton OTUs). so do not combine EC with MFNF. Use habitatN$HabitatMFNF as the forest predictor
 
 
 # combine MF, NF, and CL
-habitatN_forest$HabitatMFNFCL <- fct_collapse(habitatN_forest$HabitatMFNF, MFNFCL = c("MFNF", "CL"))
-fct_count(habitatN_forest$HabitatMFNFCL)
+habitatN$HabitatMFNFCL <- fct_collapse(habitatN$Habitat, MFNFCL = c("MF", "NF", "CL"))
+fct_count(habitatN$HabitatMFNFCL)
 
-mod_forest_ECBBJC_MFNFCL.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNFCL, data = habitatN_forest, family = binomial("cloglog"))
-plot(mod_forest_ECBBJC_MFNFCL.mvb)
-anova(mod_forest_BBECJC_MFNF.mvb, mod_forest_ECBBJC_MFNFCL.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all 746 OTUs). so do not combine EC with MFNF. Use habitatN$HabitatMFNF as the forest predictor
+mod_ECBBJC_MFNFCL.mvb <- manyglm(communityB.mvb ~ HabitatMFNFCL, data = habitatN, family = binomial("cloglog"))
+plot(mod_ECBBJC_MFNFCL.mvb)
+anova(mod_CLBBECJC_MFNF.mvb, mod_ECBBJC_MFNFCL.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # sig diff btw the two models (p=0.003 with nBoot = 299 and all non-singleton OTUs). so do not combine EC with MFNF. Use habitatN$HabitatMFNF as the forest predictor
 
 
-# START HERE:  do a correction for multiple p-values
+# do a correction for multiple p-values
+pvalues <- c(0.007, .003, .003, .003, .003)
+# pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = length(pvalues))
+pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = 30) # 30 possible pairwise comparisons between all 6 forest types:  (5*6)/2 = 30 
+pvalues.corr.fdr
+
+```
 
 
 # now add the other predictors
+```{r test}
 mod_forest_all4.mvb <- manyglm(communityB_forest.mvb ~ HabitatMFNF + Elevation_m + weather_value + Simpson_evenness_index, data = habitatN_forest, family = binomial("cloglog"))
 plot(mod_forest_all4.mvb)
-anova(mod_forest_all4.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 299)  # HabitatMFNF, Elevation_m, and weather_value are all highly significant (all 746 OTUs).  Simpson evenness index is not sig
+anova(mod_forest_all4.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # HabitatMFNF, Elevation_m, and weather_value are all highly significant (all non-singleton OTUs).  Simpson evenness index is not sig
+
+
+```
+
+
+
+
+```{r code for forest-only datasets, eval = FALSE, include = FALSE}
+habitatN_forest <- habitatN %>% dplyr::select(Habitat, weather_value, Elevation_m, x20150401b1m:Simpson_evenness_index) # %>% dplyr::filter(!(habitatN$Habitat %in% c("CL"))) %>% droplevels()
+
+communityB_forest <- communityB # %>% dplyr::filter(!(habitatN$Habitat %in% c("CL")))
+# communityB_forest <- communityB_forest[ , 1:150]  # comment away if i want to use the whole dataset.  this is to produce a partial dataset for debugging
+
+communityB_forest <- communityB_forest[, which(specnumber(communityB_forest, MARGIN=2) > 1)] # remove zerotons and singletons (species that appear in 0 or 1 row only)
+
+# alternative code for removing zerotons and singletons
+# n_communityB_forest <- apply(communityB_forest, 2, sum) # number of presences for each species
+# communityB_forest <- communityB_forest[, n_communityB_forest > 1] 
 
 ```
 
@@ -509,21 +534,20 @@ anova(mod8.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 
 ## calculate conditional and marginal effects of the main predictors
 ## get a glm fit for a variable to get approx VIF’s
 ```{r}
-ft.glm1 <- glm(communityB.mvb[, 1] ~ ., data = habitatN.mvb[c(1:3,74)], family = binomial)
+ft.glm1 <- glm(communityB[, 1] ~ ., data = habitatN[c(2, 6, 10)], family = binomial)
 vif(ft.glm1)
 ```
-                               GVIF Df GVIF^(1/(2*Df))
-Habitat                4.433146e+09  5        9.218732
-weather_value          4.433146e+09  2      258.034640
-Elevation_m            1.077532e+00  1        1.038042
-Simpson_evenness_index 1.000000e+00  1        1.000000
+                      GVIF Df GVIF^(1/(2*Df))
+Habitat       2.831444e+08  5        7.001657
+weather_value 2.831444e+08  2      129.718527
+Elevation_m   1.134176e+00  1        1.064977
 
 These predictors are not strongly correlated, so we can calculate conditional effects
 
 ```{r mvabund conditional effects}
-mod_cond1.mvb <- manyglm(communityB.mvb ~ ., data = habitatN.mvb[c(1:3,74)], family = binomial("cloglog")) # Habitat, weather_value, Elevation_m, Simpson_evenness_index
+mod_cond1.mvb <- manyglm(communityB.mvb ~ ., data = habitatN[c(2, 6, 10)], family = binomial("cloglog")) # Habitat, weather_value, Elevation_m
 plot(mod_cond1.mvb)
-summary(mod_cond1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot) 
+summary(mod_cond1.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = 50) 
 ```
 
 I think that the p-values don't matter here, just the score value.  Habitat and Elevation are conditionally more important (i.e. when the other predictors are present in the model)
