@@ -523,7 +523,7 @@ res.cors$trace
 # text(commB.fit.b3.4.none.ord$scaled.lvs[, 2] ~ commB.fit.b3.4.none.ord$scaled.lvs[, 1], habitatN$Habitat, col = as.numeric(habitatN$Habitat), cex = 1)
 ```
 
-Interpret the latent variables.  Latent variables are clearly correlated with the forest types (habitatN$Habitat) but weakly at best correlated with Simpson_evenness_index, Elevation_m, and weather_value. 
+Try to interpret the latent variables.  Latent variables are clearly correlated with the forest types (habitatN$Habitat) but weakly at best correlated with Simpson_evenness_index, Elevation_m, and weather_value. 
 *There does seem to be a quadratic relationship between lvs2 and Elevation_m*. *The correlation plot suggests that there are some informative Landsat channels.*  
 ```{r boral lvs correlations}
 cbind(commB.fit.b3.4.none.ord$scaled.lvs,habitatN$Habitat)
@@ -553,6 +553,7 @@ corrplot(lvsmatrix_cor, type = "lower", tl.pos = "l", tl.cex = 0.5, sig.level = 
 # Beta diversity CONSTRAINED ordination
 
 ## boral with ssvs.index
+Formally test the importance of environmental predictors to community analysis. 
 ```{r constrained boral ordination,}
 # set up MCMC parameters 
 mcmc.control <- list(n.burnin = 300, n.iteration = 10000, n.thin = 30)
@@ -571,16 +572,20 @@ X <- cbind(mat, habitat.ssvs)
 
 # set up prior:  ssvs.index determines which environmental predictors i will estimate the probability of effect. I can do this for all species as a group or for each species individually.
 
-ssvsindex <- rep(0, ncol(X)) # any ssvs.index integer = 0 (e.g. c(0, 0)) will estimate the probability of that environmental predictor being important for *each* species
-# or
+ssvsindex <- rep(0, ncol(X)) # an ssvs.index integer = 0 (e.g. c(0, 0)) will estimate the probability of that environmental predictor being important for *each* species
+# OR
 ssvsindex <- 1:ncol(X) # any ssvs.index integer above 0 (e.g. 1:ncol(X)) will estimate the probability of that environmental predictor being important over the *group* of species.
+# OR
+ssvsindex <- rep(-1, ncol(X)) # an ssvs.index integer = -1 will *not* estimate probability of environmental predictors.  This is for when i want to generate coefsplot
 
+# Francis Hui suggests trying different priors to stabilise sampling for sparse matrices (such as we have).  This isn't as important as getting the mcmc.control parameters right
 set.prior <- list(type = c("normal","normal","normal","uniform"), hypparams = c(10, 10, 10, 30), ssvs.index = ssvsindex)  
 # type = c("normal","normal","normal","uniform"), hypparams = c(10, 10, 10, 30) # boral default
 # type = c("cauchy","cauchy","cauchy","uniform"), hypparams = c(2.5^2, 2.5^2, 2.5^2, 30) # Gelman proposed this
 # type = c("normal","normal","normal","uniform"), hypparams = c(1, 1, 1, 30) ## People who developed the STAN package proposed this as one possibility. 
 
-# set up model
+# set up model  
+# NOTE:  change mcmc.control to mcmc.control4 to carry out a long run
 commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "random", save.model = TRUE, calc.ics = FALSE, mcmc.control = mcmc.control, prior.control = set.prior); beep(1)
 
 summary(commB.fit.b3.X)
@@ -607,6 +612,7 @@ summary(commB.fit.b3.X$ssvs.indcoefs.mean)
  
 # fitted(commB.fit.b3.X, est = "median") # huge table
 
+# only if i use ssvs.index = -1
 par(mfrow=c(2,3), mar = c(5,6,1,1))
 sapply(colnames(X), coefsplot, commB.fit.b3.X)
 
@@ -615,7 +621,6 @@ sapply(colnames(X), coefsplot, commB.fit.b3.X)
 # 
 # par(mfrow=c(1,1))
 # coefsplot("Elevation_m", commB.fit.b3.X)
-
 
 
 # When i ask for an individual-species effect ssvs.index = c(0,0). Neither Elevation_m nor Simpson_evenness_index are estimated to have an effect at the group level (Gp1&2 = 0), but Simpson_evenness_index seems to have a decent mean effect here. Asking Francis about this. 
@@ -637,7 +642,7 @@ partRes.cors$trace
 
 
 ## mvabund
-I use mvabund to test whether MF and NF are significantly different from each other and from the other habitats:  BB, EC, JC, and CL.  I do this by creating two models, one with all 6 levels and one with NF|MF combined with one of the other two habitats. I run mvabund on both models and use anova to compare the two models. If significantly different, then the two habitat types are significantly different. Finally, i conservatively adjust the p-values for all 30 possible pairwise comparisons (6 * 5)/2. 
+Testing whether i can combine levels within habitatN$habitat.  I use mvabund to test whether MF and NF are significantly different from each other and from the other habitats:  BB, EC, JC, and CL.  I do this by creating two models, one with all 6 levels and one with NF|MF combined with one of the other two habitats. I run mvabund on both models and use anova to compare the two models. If significantly different, then the two habitat types are significantly different. Finally, i conservatively adjust the p-values for all 30 possible pairwise comparisons (6 * 5)/2. 
 
 *anova.manyglm* options
     *test = "score"* # anova.manyglm help file says that test="wald" is poor for binomial data under some conditions. "score" is the better alternative. 
