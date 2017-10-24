@@ -494,19 +494,25 @@ Tested different error families (testing code is archived down below).  Based on
 
 # This takes a long time to run, should run overnight
 ```{r boral high iterations, eval=FALSE}
-
 # set up MCMC parameters
-# mcmc.control <- list(n.burnin = 300, n.iteration = 1000, n.thin = 30) # for debugging
+# mcmc.control <- list(n.burnin = 300, n.iteration = 1000, n.thin = 30, seed = 123) # for debugging
 
-mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30)
-# mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30, seed = 123) # if i want to set a seed
+mcmc.control4 <- list(n.burnin = 10000, n.iteration = 40000, n.thin = 30) # if i want to set a seed
+
+# Set up priors
+# Francis Hui suggests trying different priors to stabilise sampling for sparse matrices (such as we have).  This isn't as important as getting the mcmc.control parameters right
+set.prior <- list(type = c("normal","normal","normal","uniform"), hypparams = c(10, 10, 10, 30), ssvs.index = ssvsindex)  
+# type = c("normal","normal","normal","uniform"), hypparams = c(10, 10, 10, 30) # boral default
+# type = c("cauchy","cauchy","cauchy","uniform"), hypparams = c(2.5^2, 2.5^2, 2.5^2, 30) # Gelman proposed this
+# type = c("normal","normal","normal","uniform"), hypparams = c(1, 1, 1, 30) ## People who developed the STAN package proposed this as one possibility. 
+
 
 # set up model
 commB.fit.b3.4.none <- boral(communityB, family = "binomial", num.lv = 2, row.eff = "random", mcmc.control = mcmc.control4, save.model = TRUE); beep(sound = 1)
 
 # save output in case i want to do other analyses on it later
-saveRDS(commB.fit.b3.4.none, "analysis/commB.fit.b3.4.none.RDS")
-# commB.fit.b3.4.none <- readRDS("analysis/commB.fit.b3.4.none.RDS") # to restore
+saveRDS(commB.fit.b3.4.none, "analysis/boral_commB.fit.b3.4.none.RDS")
+# commB.fit.b3.4.none <- readRDS("analysis/boral_commB.fit.b3.4.none.RDS") # to restore
 
 summary(commB.fit.b3.4.none)
 par(mfrow = c(2,2))
@@ -586,7 +592,7 @@ set.prior <- list(type = c("normal","normal","normal","uniform"), hypparams = c(
 
 # set up model  
 # NOTE:  change mcmc.control to mcmc.control4 to carry out a long run
-commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "random", save.model = TRUE, calc.ics = FALSE, mcmc.control = mcmc.control, prior.control = set.prior); beep(1)
+commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "random", save.model = TRUE, calc.ics = FALSE, mcmc.control = mcmc.control4, prior.control = set.prior); beep(1)
 
 summary(commB.fit.b3.X)
 # $ssvs.gpcoefs.prob
