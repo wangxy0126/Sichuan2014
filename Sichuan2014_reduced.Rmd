@@ -14,9 +14,9 @@ Make sure that Source option is set to `Chunk output in Console` and do not sele
 
 ## Tentative conclusions
 
-1) Mosaic forest has higher species richness and higher Shannon richness than the monospecies plantations:  JC, EC, and BB
+1) Mosaic forest has higher species richness and higher Shannon richness than the monospecies plantations:  JC, EC, and BB (marginal diff over BB)
 2) Mosaic forest composition is more similar to Natural forest than any of the monospecies plantations are to Natural forest
-2) The source of the beta diversity in this system is entirely turnover, which means that each of the monospecies plantations has its own set of species
+3) The source of the beta diversity in this system is entirely turnover, which means that each of the monospecies plantations has its own set of species
 
 ## To dos:
 
