@@ -236,6 +236,8 @@ colnames(comm4inext) <- cname
 comm4inext <- rbind(c(nrow(BB), nrow(CL), nrow(EC), nrow(JC), nrow(MF), nrow(NF)), comm4inext)
 comm4inext
 confnum=0.95 # set confidence here
+
+
 outcomm0 <- iNEXT(comm4inext, q=0, conf=confnum, datatype="incidence_freq")
 # Hill numbers:  0 = sp richness, 1 = Shannon, 2 = inverse Simpson
 outcomm0$DataInfo
@@ -712,11 +714,11 @@ plot(mod_ECBBJCMF_NFCL.mvb)
 anova(mod_BBCLECJCMFNF.mvb, mod_ECBBJCMF_NFCL.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # p = 0.002, df = 1, score= 88.28, nBoot = 499, 20 mins.  MF and NF are sig diff
 
 
-# do a table-wide correction, under the assumption that there are 30 possible pairwise comparisons between all 6 forest types:  (5*6)/2 = 30  
+# do a table-wide correction, under the assumption that there are 30 possible pairwise comparisons between all 6 forest types:  (5*6)/2 = 15  
 pvalues <- c(0.002, .002, .002, .002, .002)
-pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = 30) 
+pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = 15) 
 pvalues.corr.fdr
-# [1] 0.012 0.012 0.012 0.012 0.012
+# [1] 0.006 0.006 0.006 0.006 0.006
 # pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = length(pvalues))
 ```
 
@@ -768,11 +770,11 @@ plot(mod_ECBBJCNF_MFCL.mvb)
 anova(mod_BBCLECJCMFNF.mvb, mod_ECBBJCNF_MFCL.mvb, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # p = 0.002, df = 1, score= 81.64, nBoot = 499, 20 mins.  CL and MF are sig diff
 
 
-# do a table-wide correction, under the assumption that there are 30 possible pairwise comparisons between all 6 forest types:  (5*6)/2 = 30  
+# do a table-wide correction, under the assumption that there are 30 possible pairwise comparisons between all 6 forest types:  (5*6)/2 = 15  
 pvalues <- c(0.002, .002, .002, .002)
-pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = 30) 
+pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = 15) 
 pvalues.corr.fdr 
-# [1] 0.015 0.015 0.015 0.015
+# [1] 0.0075 0.0075 0.0075 0.0075
 # pvalues.corr.fdr<-p.adjust(pvalues, method = "fdr", n = length(pvalues))
 ```
 
