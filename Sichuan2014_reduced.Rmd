@@ -596,6 +596,8 @@ set.prior <- list(type = c("normal","normal","normal","uniform"), hypparams = c(
 # NOTE:  change mcmc.control to mcmc.control4 to carry out a long run
 commB.fit.b3.X <- boral(communityB, X = X, family = "binomial", num.lv = 2, row.eff = "random", save.model = TRUE, calc.ics = FALSE, mcmc.control = mcmc.control4, prior.control = set.prior); beep(1)
 
+saveRDS(commB.fit.b3.X, "analysis/commB.fit.b3.X.RDS") # 
+
 summary(commB.fit.b3.X)
 # $ssvs.gpcoefs.prob
 # Gp1 Gp2 Gp3 Gp4 Gp5 Gp6 Gp7 
