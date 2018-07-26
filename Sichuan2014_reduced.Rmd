@@ -317,21 +317,31 @@ tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer
 communityBbetapart <- bind_cols(habitatN, communityB) 
 communityBbetapart <- communityBbetapart %>% dplyr::select(-c(Habitat:sprichness))
 
-JCNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("JC", "NF")) %>% column_to_rownames(var="Site")
-BBNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("BB", "NF")) %>% column_to_rownames(var="Site")
-CLNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("CL", "NF")) %>% column_to_rownames(var="Site")
-ECNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("EC", "NF")) %>% column_to_rownames(var="Site")
-MFNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("MF", "NF")) %>% column_to_rownames(var="Site")
+# JCNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("JC", "NF")) %>% column_to_rownames(var="Site")
+# BBNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("BB", "NF")) %>% column_to_rownames(var="Site")
+# CLNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("CL", "NF")) %>% column_to_rownames(var="Site")
+# ECNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("EC", "NF")) %>% column_to_rownames(var="Site")
+# MFNF <- communityBbetapart %>% dplyr::filter(habitatN$Habitat %in% c("MF", "NF")) %>% column_to_rownames(var="Site")
+# 
+# JCNF.multi.dist <- beta.multi(JCNF, index.family="jac")
+# BBNF.multi.dist <- beta.multi(BBNF, index.family="jac")
+# CLNF.multi.dist <- beta.multi(CLNF, index.family="jac")
+# ECNF.multi.dist <- beta.multi(ECNF, index.family="jac")
+# MFNF.multi.dist <- beta.multi(MFNF, index.family="jac")
+# 
+# multi.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, CLNF = CLNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
 
-JCNF.multi.dist <- beta.multi(JCNF, index.family="jac")
-BBNF.multi.dist <- beta.multi(BBNF, index.family="jac")
-CLNF.multi.dist <- beta.multi(CLNF, index.family="jac")
-ECNF.multi.dist <- beta.multi(ECNF, index.family="jac")
-MFNF.multi.dist <- beta.multi(MFNF, index.family="jac")
+# no nestedness
+ALL.dist <- communityBbetapart %>% column_to_rownames(var="Site") %>% beta.multi(index.family="jac")
+# $beta.JTU
+# [1] 0.9856346
+# $beta.JNE
+# [1] 0.004771889
+# $beta.JAC
+# [1] 0.9904065
 
-multi.all <- list(JCNF = JCNF.multi.dist, BBNF = BBNF.multi.dist, CLNF = CLNF.multi.dist, ECNF =  ECNF.multi.dist, MFNF = MFNF.multi.dist)
 
-
+# pairwise beta diversities for plotting
 ALL.dist <- communityBbetapart %>% column_to_rownames(var="Site") %>% beta.pair(index.family="jac")
 ALL.dist.subset <- ALL.dist[["beta.jne"]]
 ALL.dist.jne.jmds <- metaMDS(ALL.dist.subset)
@@ -346,7 +356,7 @@ stressplot(ALL.dist.jtu.jmds)
 # , ylim = c(-0.5, 0.5), xlim = c(-0.4, 0.4)
 par(mfrow=c(2,2))
 with(habitatN, ordisurf(community.jmds, sprichness, main="All beta diversity", cex=0.5, col = "white"))
-# plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
+plot(community.jmds, main = "All beta diversity", ylim = c(-0.4, 0.4))
     with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("BB"))))
     with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[1]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("CL"))))
     with(habitatN, ordispider(community.jmds, Habitat, cex=.5, draw="polygon", col=as.character(colvec[3]), alpha=20, kind="se", conf=0.95, label=TRUE, show.groups=(c("EC"))))
