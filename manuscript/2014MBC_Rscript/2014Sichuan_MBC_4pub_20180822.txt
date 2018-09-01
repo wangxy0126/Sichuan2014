@@ -1,0 +1,221 @@
+################  MBC process command history for 2014 Sichuan MBC data  ##########################
+
+############################################################################################
+############################################################################################
+############################################################################################
+
+1. Raw data process: remove adapter -- AdapterRemoval, Sickle, error correction -- BayesHammer, Merge -- pandaseq, split_library: MACQIIME
+	
+	###########################  Lib 1    #################################
+	###########################  Lib 1    #################################
+	###########################  Lib 1    #################################
+	
+	AdapterRemoval --file1 ../../newLib1/Lib1_R1.fastq.gz --file2 ../../newLib1/Lib1_R2.fastq.gz --basename AdapterR --trimns  ## 2mins, 3390623 --> 3346852
+	
+	date; sickle pe -f AdapterR.pair1.truncated -r AdapterR.pair2.truncated -o sickle_R1.fq -p sickle_R2.fq -t sanger -s sickle_Single.fq; date ## 1 min, 3346852 --> 3141603
+	#Total input FastQ records: 6693704 (3346852 pairs)
+	#FastQ paired records kept: 6283206 (3141603 pairs)
+	#FastQ single records kept: 202099 (from PE1: 200351, from PE2: 1748)
+	#FastQ paired records discarded: 6300 (3150 pairs)
+	#FastQ single records discarded: 202099 (from PE1: 1748, from PE2: 200351)
+	
+	## upload to Barcode server
+	scp sickle_* wangxy@10.0.16.80:sicMBC/Lab1
+	
+	date;~/scripts/SPAdes-3.10.1-Linux/bin/spades.py --only-error-correction -1 sickle_R1.fq -2 sickle_R2.fq -s sickle_Single.fq -o SPAdes_hammer ;date  #####  Wed Apr 19 09:36:48 CST 2017  --  Wed Apr 19 10:46:03 CST 2017	
+	scp wangxy@10.0.16.80:sicMBC/Lab1/SPAdes_hammer/corrected/sickle_R*.00.0_0.cor.fastq.gz ./
+	wc sickle_R1.00.0_0.cor.fastq     ###  3141603  -- >  3066832
+	## PANDAseq, -l (length): Minimum length for a sequence
+	date; pandaseq -f sickle_R1.00.0_0.cor.fastq.gz -r sickle_R2.00.0_0.cor.fastq.gz -A simple_bayesian -F -N -T 7 -l 300 -o 75 -g pandaseq_log.txt -w sickle_panda300.fastq ; date ######  1218162 longer than 300bp 
+	
+############################ split_library ########################################
+
+	mkdir Split_lib
+	cp sickle_panda300.fastq ./Split_lib/
+	cd Split_lib/
+	date; seqtk seq -r sickle_panda300.fastq > sickle_panda300_rc.fastq ;date ### producing the Reverse-complement of each sequence
+	*********************************************************
+	source /macqiime/configs/bash_profile.txt		### for using Macqiime
+	date; convert_fastaqual_fastq.py -f ../sickle_panda300.fastq -c fastq_to_fastaqual; date		 #macqiime
+	date; convert_fastaqual_fastq.py -f sickle_panda300_rc.fastq -c fastq_to_fastaqual; date		## 8 mins
+	
+	# make maps for all Samples, then check by following command
+	validate_mapping_file.py -m mapf_r1.txt -o check_map/
+
+	############ mapf_r1.txt, macqiime, -n, --start-numbering-at	Seq id to use for the first sequence [default: 1].
+	date; split_libraries.py -m maps/mapf_r1.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r1_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r2.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r2_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r3.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r3_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r4.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r4_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r5.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r5_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r6.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r6_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	
+	date; split_libraries.py -m maps/mapf_r1.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r1_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 23970;date
+	date; split_libraries.py -m maps/mapf_r2.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r2_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 2169;date
+	date; split_libraries.py -m maps/mapf_r3.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r3_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 3366;date
+	date; split_libraries.py -m maps/mapf_r4.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r4_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 2264;date
+	date; split_libraries.py -m maps/mapf_r5.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r5_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 ;date
+	date; split_libraries.py -m maps/mapf_r6.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r6_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 550;date
+
+	#sh run_split0814_lib1.sh
+	cat *_split/seqs.fna >Lib1_allSeqs.fa
+	less Lib1_allSeqs.fa | grep -c '>'					#### 960791 
+	awk '{if(/^>/)print $1; else print $0}' Lib1_allSeqs.fa >Lib1_allSeqs.fas 
+	rm Lib1_allSeqs.fa
+	less Lib1_allSeqs.fas |grep -c '>'			#####960791
+		
+	
+	###########################  Lib 2    #################################
+	###########################  Lib 2    #################################
+	###########################  Lib 2    #################################
+	
+	AdapterRemoval --file1 ../../Lib2/Undetermined_S0_L001_R1_001.fastq.gz --file2 ../../Lib2/Undetermined_S0_L001_R2_001.fastq.gz --basename AdapterR --trimns ### 3410111  --  3347495
+	
+	date; sickle pe -f AdapterR.pair1.truncated -r AdapterR.pair2.truncated -o sickle_R1.fq -p sickle_R2.fq -t sanger -s sickle_Single.fq; date ### 3347495  --   3266538
+	#Total input FastQ records: 6694990 (3347495 pairs)
+	#FastQ paired records kept: 6533076 (3266538 pairs)
+	#FastQ single records kept: 79905 (from PE1: 76882, from PE2: 3023)
+	#FastQ paired records discarded: 2104 (1052 pairs)
+	#FastQ single records discarded: 79905 (from PE1: 3023, from PE2: 76882)	
+
+	scp sickle_* wangxy@10.0.16.80:sicMBC/Lab2	
+	date;~/scripts/SPAdes-3.10.1-Linux/bin/spades.py --only-error-correction -1 sickle_R1.fq -2 sickle_R2.fq -s sickle_Single.fq -o SPAdes_hammer ;date  ##### Wed Apr 19 11:07:54 CST 2017 --  Wed Apr 19 12:14:37 CST 2017
+	scp wangxy@10.0.16.80:sicMBC/lab2/SPAdes_hammer/corrected/sickle_R*.00.0_0.cor.fastq.gz ./
+	wc sickle_R1.00.0_0.cor.fastq     ###  3266538  -- >  3245719
+	
+	## PANDAseq, -l (length): Minimum length for a sequence
+	date; pandaseq -f sickle_R1.00.0_0.cor.fastq.gz -r sickle_R2.00.0_0.cor.fastq.gz -A simple_bayesian -F -N -T 7 -l 300 -o 75 -g pandaseq_log.txt -w sickle_panda300.fastq ; date  ## 
+	
+############################ split_library ########################################
+### 	mkdir Split_lib
+	cp sickle_panda300.fastq ./Split_lib/
+	cd Split_lib/
+	date; seqtk seq -r ../sickle_panda300.fastq > sickle_panda300_rc.fastq ;date ### producing the Reverse-complement of each sequence
+	******************************************************
+	source /macqiime/configs/bash_profile.txt		### for using Macqiime
+	
+	date; convert_fastaqual_fastq.py -f ../sickle_panda300.fastq -c fastq_to_fastaqual; date		 #macqiime
+	date; convert_fastaqual_fastq.py -f sickle_panda300_rc.fastq -c fastq_to_fastaqual; date		## 8 mins
+
+	# make maps for all Samples, then check by following command
+	validate_mapping_file.py -m mapf_r1.txt -o check_map/		
+	############ mapf_r1.txt
+	date; split_libraries.py -m maps/mapf_r1.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r1_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r2.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r2_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r3.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r3_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r4.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r4_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r5.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r5_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	date; split_libraries.py -m maps/mapf_r6.txt -f sickle_panda300.fna -q sickle_panda300.qual -o nmapf_r6_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2;date
+	
+	date; split_libraries.py -m maps/mapf_r1.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r1_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 23342;date
+	date; split_libraries.py -m maps/mapf_r2.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r2_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 2423;date
+	date; split_libraries.py -m maps/mapf_r3.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r3_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 1658;date
+	date; split_libraries.py -m maps/mapf_r4.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r4_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 1985;date
+	date; split_libraries.py -m maps/mapf_r5.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r5_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 552;date
+	date; split_libraries.py -m maps/mapf_r6.txt -f sickle_panda300_rc.fna -q sickle_panda300_rc.qual -o nmapf_r6_rc_split/ -l 300 -L 400 -b variable_length -H 9 -r -t -d -z truncate_remove -s 20 -M 2 --reverse_primer_mismatches 2 -n 2;date
+
+	#sh run_split_lib2_0814.sh
+	
+	cat *_split/seqs.fna >Lib2_allSeqs.fa
+	awk '{if(/^>/)print $1; else print $0}' Lib2_allSeqs.fa >Lib2_allSeqs.fas 
+	rm Lib2_allSeqs.fa
+	less Lib2_allSeqs.fas |grep -c '>'			####### 1486544 
+	
+	###################### merge 2 libs reads together #################################
+	cat ../Lib*/Split_lib2/Lib*_allSeqs.fas >2lib_split.fas
+	less 2lib_split.fas |grep -c '>'			####### 2,447,335 reads 
+	
+2. filter	 reads before Chimera check to short time when de-Chimera
+
+	1). sort the reads in 2lib_split.fas and and only keep the reads with the length between 300  -- 330
+	date; usearch9 -sortbylength 2lib_split.fas -fastaout 2lib_split_300_330.fasta -minseqlength 300 -maxseqlength 330; date 
+	### Length min 260, median 319, max 362. Writing output 702 short, 457 long
+	less 2lib_split_300_330.fasta |grep -c ">"         ###### 2446175 reads
+	
+3. removing chimeras: vsearch v2.4.3_osx_x86_64, 8.0GB RAM, 4 cores, https://github.com/torognes/vsearch
+	
+	date; usearch9 -fastx_uniques 2lib_split_300_330.fasta -fastaout 2libsLength_uniques.fasta -sizeout -relabel unique -uc unique.uc; date
+	### just used unique.uc file
+	perl Pick_cluster_num_V3.pl -id uc/ -o usear_mapV3.txt		## added function for getting size of each unique seq
+	## pick rep seqs 
+	date; pick_rep_set.py -i usear_mapV3.txt -f 2lib_split_300_330.fasta -o usearch_derepV3.fasta -m most_abundant; date	
+	## deChimeras by vsearch	
+	date;vsearch --uchime_denovo usearch_derepV3.fasta --chimeras 2libs_Ch.fasta --nonchimeras 2libs_nonCh.fasta;date	
+	
+	## Masking 100%  
+	## Sorting by abundance 100%
+	## Counting unique k-mers 100%  
+	## Detecting chimeras 100%  
+	## Found 406604 (32.0%) chimeras, 864067 (67.9%) non-chimeras, and 1045 (0.1%) borderline sequences in 1271716 unique sequences.
+	## Taking abundance information into account, this corresponds to 485245 (19.8%) chimeras, 1959468 (80.1%) non-chimeras, and 1462 (0.1%) borderline sequences in 2446175 total sequences.	
+	less 2libs_nonCh.fasta |grep -c ">" ## 864067
+	
+4. CROP with 97% similarity 	
+	## screen, Control+A+D: detatch current session; screen -r sessionID: return to sessionID
+	screen
+	date; crop -i 2libs_nonCh.fasta -o 2libs_v2_CROP97 -l 1.0 -u 1.5 -b 17281 -z 450 -r 0 ;date   ###  clusters
+	#### Thu Aug 24 10:02:04 CST 2017 ---- Fri Aug 25 13:43:20 CST 2017, 3507 clusters, 864067 nonCh
+	
+	# Parms are: -b = number_of_sequences/50 = 864067/50 = 17281.34 = 17281;
+	# Our experience showed that –z should be chosen such that if –z=Z, then ZL<150,000, where L is the average length of the sequences. i.e.:
+	### For a data set of full length 16S rRNA sequences (~1,200 – 1,400 bp), we can set –z 100
+	### For a data set of V6 region sequences only (~60 bp), we can set –z 2000
+	### For a data set of part COI gene sequences (average length is 319 bp), we can set –z 400
+	### -z < 150000/avg_seq_length = 150000/319bp = 470
+	# so use 500; -e = 2000 (default), -s for 0.97 similarity.
+	# -l 0.3 -u 0.5 ------------ 1%
+	# -l 0.6 -u 1.0 ------------ 2%
+	# -l 1.0 -u 1.5 ------------ 3% (-s 97% = 1-3%)
+	# -l 1.5 -u 2.5 ------------ 5%
+	# -l 3.0 -u 4.0 ------------ 8%
+	# -l 4.0 -u 5.0 ------------ 10%
+
+5. merge otu table	
+	# Most important is 2libs_v2_CROP97.cluster.list  	*** 3507 clusters	
+	# use TextWrangler to replace commas in 2libs_v2_CROP97.cluster.list with tabs, creating new2libs_v2_CROP97.cluster.list 
+
+	merge_otu_maps.py -i usear_mapV3.txt,new2libs_v2_CROP97.cluster.list -o 2libs_CROP97_merge_map.txt
+	# merge_otu_maps.py -i nonCh_map.txt,new2libs_v2_CROP97.cluster.list -o 2libs_CROP97_merge_map.txt
+	make_otu_table.py -i 2libs_CROP97_merge_map.txt -o 2libs_CROP97_merge_otu.biom
+	biom convert -i 2libs_CROP97_merge_otu.biom -o 2libs_CROP97_merge_otu.txt -b		
+	
+	#### for convenient, we replaced the clusters' name with ClusterXXX: delete (;size=\d+;), unique -> Cluster
+	
+6. filtering OTUs
+	## 1). filter Chimeras again
+	## date;vsearch --uchime_denovo 2libs_v2_CROP97.cluster.fasta --chimeras 2libs_cluster_Ch.fasta --nonchimeras 2libs_cluster_nonCh.fasta;date
+	## Found 0 (0.0%) chimeras, 3507 (100.0%) non-chimeras, and 0 (0.0%) borderline sequences in 3507 unique sequences.
+
+	2). lulu to reduce OTUs (processed in R), 3507 --> 1506
+	
+	3). phyloseq to filter small OTUs ((processed in R)) (>= 44), 1506 --> 594	
+	awk '{print $1}' 2014MBC_44reads_otu594.txt >otu_list594.txt # remove first line from otu_list594.txt
+	seqtk subseq 2libs_CROP97.cluster3507.fasta otu_list594.txt >2014MBC_44reads_594.fasta
+		
+	4). align to Arthropoda_ref 
+	date;align_seqs.py -i 2014MBC_44reads_594.fasta -t Arthropoda_ref.fasta -p 0.6 -o pynast_60_44;date	## 1 failure, 593 remain
+	
+	5). translate to check those seqs with StopCodon, *** Geneious Alignment, Automatically determine direction
+		after aligning, check translation frame and make sure all seqs are in the right frame (by hand). 
+		then translate to file: 2014MBC_44reads_593_pro.fasta
+		*********
+		perl extract_seqsStopCoden.pl -i 2014MBC_44reads_593_pro.fasta -o 593seqs_withStopCodon.txt ## 32 seqs with StopCodon
+		filter_fasta.py -f 2014MBC_44reads_593.fasta -o 2014MBC_44reads_transfiltering561.fasta -s 593seqs_withStopCodon.txt -n  # 561 
+	
+	6). taxonomic assignment, MIDORI Reference		
+	# 2014MBC_44reads_transfiltering561.fasta
+	# 16 deleted: 7 nonArthropoda, 9 Clusters with low ID confidence value. 545 remaining
+	# 78 IDed to sp, 93 IDed to genus, 115 IDed to family, 328 IDed to order, 527 IDed to class, 18 just IDed to phylum
+	
+	7). get datasets for later analysis
+		# otu_tables:
+		perl final_OTUtable.pl -i1 545otu/2014MBC_545otu_list.txt -i2 545otu/2014MBC_44reads_otu594.txt -o 2014MBC_44reads_otu545.txt
+		## this OTU table used to do community analysis
+		
+		# seqs files:
+		seqtk subseq 2014MBC_44reads_transfiltering561.fasta 2014MBC_545otu_list.txt >2014MBC_545otu.fasta
+		## 
+		
+		# for metacoder:		
+		# building ML tree on Geneious with RaxML
+	
