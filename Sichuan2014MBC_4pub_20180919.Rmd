@@ -1,13 +1,11 @@
 ---
 title: "Sichuan2014_metabarcode pipeline"
-author: "Douglas Yu"
-date: "19/09/2018"
+author: "Douglas Yu and Xiaoyang Wang"
+date: "29/09/2018"
 output: html_document
 editor_options: 
   chunk_output_type: console
 ---
-
-Make sure that Source option is set to `Chunk output in Console` and do not select `Show Previews inline`
 
 # start R analysis
 ```{r setup, packages}
@@ -30,21 +28,26 @@ library(SpeciesMix)
 library(beepr)
 library(corrplot)
 library(lulu)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("phyloseq")
+library(phyloseq)
+library(data.table)
+library(ggplot2)
+library(metacoder)
+library(tibble)
+library(UpSetR)
 
 sessionInfo()
 
 ```
 
-#After CROP clustering with 97sim
-#run following commands on terminal for getting match_list
-cd Documents/kiz/ecec/2014-GFGP/MBC-miseq/Eco_analysis/2014MBC_CROP97_3507otus/1lulu_3507
+#After CROP clustering with 97% similarity
+#run following command on terminal for getting match_list
 vsearch --usearch_global 2libs_CROP97.cluster3507.fasta --db 2libs_CROP97.cluster3507.fasta --self --id .84 --iddef 1 --userout match_list.txt -userfields query+target+id --maxaccepts 0 --query_cov .9 --maxhits 10
 
 # using match list for lulu
 ```{r code for lulu, eval=FALSE, include=FALSE}
-library(lulu)
-
-matchlist <- read.table("lulu_3507/match_list.txt", header=FALSE,as.is=TRUE, stringsAsFactors=FALSE) 
+matchlist <- read.table("lulu_3507/match_list.txt", header=FALSE,as.is=TRUE, stringsAsFactors=FALSE)  # 3507 OTUs
 comLuLu <- read.table("lulu_3507/2libs_CROP97_merge_otu3507.txt", header= T, sep = "\t")
 
 str(comLuLu)
@@ -54,23 +57,15 @@ comLuLu <- sapply(comLuLu, function(x) as.numeric(x))
 rownames(comLuLu) <- rname
 comLuLu <- as.data.frame(comLuLu)
 
-curated_result <- lulu(comLuLu, matchlist) # equals 
-#curated_result <- lulu(comLuLu, matchlist, minimum_ratio_type = "min", minimum_ratio = 1, minimum_match = 84, minimum_relative_cooccurence = 0.95)
+curated_result <- lulu(comLuLu, matchlist) # equivalent to the follow command
+# curated_result <- lulu(comLuLu, matchlist, minimum_ratio_type = "min", minimum_ratio = 1, minimum_match = 84, minimum_relative_cooccurence = 0.95)
 
 new_table_lulu <- curated_result$curated_table
-write.table(new_table_lulu, "lulu_3507/2014MBC_otu1506.txt", sep = "\t")
-
 ```
 
 #we do phyloseq after lulu
 ```{r phyloseq, eval=FALSE, include=FALSE}
-########## filter small OTUs, phyloseq ##
-#source("https://bioconductor.org/biocLite.R")
-#biocLite("phyloseq")
-
-library("phyloseq"); packageVersion("phyloseq")
-library("data.table"); packageVersion("data.table")
-library("ggplot2"); packageVersion("ggplot2")
+########## filter out small OTUs, phyloseq ##
 
 communityAll_t <- new_table_lulu
 
@@ -112,19 +107,14 @@ pCumSum + xlim(0, 400)
 ## tax_table()   Taxonomy Table:    [ 3426 taxa by 7 taxonomic ranks ]
 ## phy_tree()    Phylogenetic Tree: [ 3426 tips and 3424 internal nodes ]
 
-commMBC.20 <- communityAll[ ,colSums(communityAll)>=20] ## 731 otus remain
-commMBC.20 <- commMBC.20[ rowSums(commMBC.20)>0,]
-rowSums(commMBC.20)
-commMBC20copies <- t(commMBC.20)
+# after viewing the above figures, we choose 44 as the minimum OTU size
 
 commMBC.44 <- communityAll[ ,colSums(communityAll)>=44] # 594 otus remain
 commMBC.44 <- commMBC.44[ rowSums(commMBC.44)>0,]
 rowSums(commMBC.44)
 commMBC44copies <- t(commMBC.44)
 
-write.table(commMBC20copies, file = "2phyloseq1506/2014MBC_20reads_otu731.txt", sep = "\t", row.names = TRUE, col.names = TRUE)
-write.table(commMBC44copies, file = "2phyloseq1506/2014MBC_44reads_otu594.txt", sep = "\t", row.names = TRUE, col.names = TRUE)
-
+# write.table(commMBC44copies, file = "lulu_3507/2014MBC_44reads_otu594.txt", sep = "\t", row.names = TRUE, col.names = TRUE)
 ```
 
 ## commnunity analyses start from here
@@ -169,8 +159,6 @@ community_t <- as.data.frame(community_t)
 community_t <- rownames_to_column(community_t)
 colnames(community_t) <- c("otu", gfgMB$Site) # add column names
 
-#communityAll_t <- community_t %>% dplyr::filter(phylum=="Arthropoda")
-#communityAll_t <- community_t %>% dplyr::select(-c(kingdom:species))
 communityAll <- t(community_t)
 colvector <- communityAll[1,] # make a vector of the first row, which has the otu names
 communityAll <- as.data.frame(communityAll)
@@ -215,15 +203,10 @@ habitatN <- habitatN %>% dplyr::filter(habitatN$sprichness >= 5)
 habitatN <- droplevels(habitatN)
 community <- community[, colSums(community)>=20] # 7 OTUs removed
 #Cluster31064  Cluster334816  Cluster672922  Cluster932857  Cluster989447  Cluster273565 Cluster1265861
-
 ```
 
-```{r save datasets for GDM, eval=FALSE, include=FALSE}
-write.table(community, "GDM_community.txt", sep = "\t")
-write.table(habitatN, "GDM_environment.txt", sep = "\t")
-```
 
-```{r beanplot of reads number by habitat}
+```{r beanplot of read number by habitat}
 beanplot(rowSums(community)~habitatN$Habitat, col = c("grey", "white"), xlab = "Habitat type", ylab = "Reads number")
 # Kampstra, P. Beanplot: A Boxplot Alternative for Visual Comparison of Distributions. Journal of Statistical Software, Code Snippets 28(1). 1-9 (2008) 
 
@@ -231,16 +214,13 @@ nboot <- 999 # set to 999 for publication
 # base model with no levels combined
 reads.glm <- manyglm(rowSums(community) ~ habitatN$Habitat)
 plot(reads.glm)
-anova(reads.glm, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # p = 0.04, df = 5, score = 8.671, nBoot = 999, 1 min. all reads number are not significantly defferent from each other
+anova(reads.glm, cor.type = "shrink", test = "score", show.time = "all", nBoot = nboot)  # p = 0.036, df = 5, score = 8.671, nBoot = 999, 1 min. all read numbers are not significantly defferent from each other
 
 ```
 
 #we used the taxonomic assignment (RDP classifier) results to built a taxon distribution of all OTUs
 ```{r metacoder, warning=FALSE}
 #### for otus taxa tree
-#install.packages("metacoder")
-library(metacoder)
-library(tibble)
 
 mbc_otus <- read.table("data/forMetacoder/2014MBC_otu536_tax.txt", header = T, sep = "\t")
 mbc_samples <- read.table("data/forMetacoder/2014MBC_sample536.txt", header = T, sep = "\t")
@@ -299,7 +279,7 @@ obj$data$diff_table <- compare_groups(obj, dataset = "tax_abund",
                                       groups = mbc_samples$Habitat)
 print(obj$data$diff_table)
 heat_tree_matrix(obj,
-                 dataset = "diff_table",
+                 data = "diff_table",
                  node_size = n_obs,
                  node_label = taxon_names,
                  node_color = log2_median_ratio,
@@ -313,7 +293,7 @@ heat_tree_matrix(obj,
 
 # page(compare_groups) #check codes of compare_groups, change "median" to "mean"
 
-##### remove CL group to see difference in  forest 
+##### remove CL group to see differences in forest and plantations only 
 otus_without_CL <- mbc_otus %>% dplyr::select(-c(CL01:CL16))
 samples_without_CL <- mbc_samples %>% dplyr::filter(mbc_samples$Habitat %in% c("BB", "EC", "JC", "MP", "NF"))
 
@@ -367,7 +347,7 @@ objF$data$diff_table <- compare_groups(objF, dataset = "tax_abund",
                                       groups = samples_without_CL$Habitat)
 print(objF$data$diff_table)
 heat_tree_matrix(objF,
-                 dataset = "diff_table",
+                 data = "diff_table",
                  node_size = n_obs,
                  node_label = taxon_names,
                  node_color = log2_median_ratio,
@@ -414,27 +394,29 @@ JC_obs <- rowSums(JC)
 MP_obs <- rowSums(MP)
 NF_obs <- rowSums(NF)
 
-t.test(BB_obs, CL_obs)
-t.test(BB_obs, EC_obs)
-t.test(BB_obs, JC_obs)
-t.test(BB_obs, MP_obs)
-t.test(BB_obs, NF_obs)
-t.test(CL_obs, EC_obs)
-t.test(CL_obs, JC_obs)
-t.test(CL_obs, MP_obs)
-t.test(CL_obs, NF_obs)
-t.test(EC_obs, JC_obs)
-t.test(EC_obs, MP_obs)
-t.test(EC_obs, NF_obs)
-t.test(JC_obs, MP_obs)
-t.test(JC_obs, NF_obs)
-t.test(MP_obs, NF_obs)
+vec <- rep(NA, 15)
+vec[1] <- t.test(BB_obs, CL_obs)[["p.value"]]
+vec[2] <- t.test(BB_obs, EC_obs)[["p.value"]]
+vec[3] <- t.test(BB_obs, JC_obs)[["p.value"]]
+vec[4] <- t.test(BB_obs, MP_obs)[["p.value"]]
+vec[5] <- t.test(BB_obs, NF_obs)[["p.value"]]
+vec[6] <- t.test(CL_obs, EC_obs)[["p.value"]]
+vec[7] <- t.test(CL_obs, JC_obs)[["p.value"]]
+vec[8] <- t.test(CL_obs, MP_obs)[["p.value"]]
+vec[9] <- t.test(CL_obs, NF_obs)[["p.value"]]
+vec[10] <- t.test(EC_obs, JC_obs)[["p.value"]]
+vec[11] <- t.test(EC_obs, MP_obs)[["p.value"]]
+vec[12] <- t.test(EC_obs, NF_obs)[["p.value"]]
+vec[13] <- t.test(JC_obs, MP_obs)[["p.value"]]
+vec[14] <- t.test(JC_obs, NF_obs)[["p.value"]]
+vec[15] <- t.test(MP_obs, NF_obs)[["p.value"]]
 
-p_values <- c(0.0244, 0.2402, 0.1078, 0.7774, 0.2095, 0.0027, 0.0004, 0.0142, 0.6047, 0.7341, 0.3663, 0.0429, 0.1877, 0.0202, 0.1514)
+p_values <- vec
+# p_values <- c(0.0244, 0.2402, 0.1078, 0.7774, 0.2095, 0.0027, 0.0004, 0.0142, 0.6047, 0.7341, 0.3663, 0.0429, 0.1877, 0.0202, 0.1514)
 p_values.corr.fdr<-p.adjust(p_values, method = "fdr", n = length(p_values)) 
 p_values.corr.fdr
-# 0.0732000 0.3275455 0.2310000 0.7774000 0.3142500 0.0202500 0.0060000 0.0710000
-# 0.6977308 0.7774000 0.4578750 0.1072500 0.3128333 0.0732000 0.2838750
+# 0.073117886 0.327556823 0.231087068 0.777408689 0.314280549 0.020438641 0.005402277 0.070797333
+# 0.697709778 0.777408689 0.457845891 0.107319818 0.312783984 0.073117886 0.283870359
 ```
 
 # traditional Chao
@@ -453,20 +435,21 @@ MP     119 405.5079 98.01090 203.44444 33.92075 267.8056 153.4993 14.358124  9
 NF     210 507.3394 72.71267 346.61538 48.44615 445.4744 266.7256 22.180423 13
 
 ```{r barchart for estimating value}
-es_value <- c(185.9796, 115.4592, 209.6154, 405.5079, 336.1658, 507.3394)
-se <- c(39.89775, 22.33722, 48.52236, 98.01090, 37.44452, 72.71267)
+es_value <- pool1$chao
+se <- pool1$chao.se
+# es_value <- c(185.9796, 115.4592, 209.6154, 405.5079, 336.1658, 507.3394)
+# se <- c(39.89775, 22.33722, 48.52236, 98.01090, 37.44452, 72.71267)
 
 error.bar <- function(x, y, upper, lower=upper, length=0.1,...){
 if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
 stop("vectors must be same length")
 arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
 }
-par(MProw=c(1,2))
+
+par(mfrow=c(1,2))
 bar_es <- barplot(es_value, names.arg = c("BB", "EC", "JC", "MP", "CL", "NF"), col = "lightblue", ylim = c(0, 600), border = NA, ylab = "Species richness estimates")
 error.bar(bar_es,es_value, se)
-par(MProw=c(1,1))
-
-
+par(mfrow=c(1,1))
 ```
 
 ```{r Welch-t test for Chao}
@@ -486,63 +469,64 @@ t.test2 <- function(m1, m2, s1, s2, n1, n2, m0=0, equal.variance=FALSE)
   }      
   t <- (m1-m2-m0)/se 
   dat <- c(m1-m2, se, t, round(df,1), 2*pt(-abs(t),df))    
-  names(dat) <- c("Difference of means", "Std Error", "t", "df", "p-value")
+  # names(dat) <- c("Difference of means", "Std Error", "t", "df", "p-value")
   return(dat) 
 }
 
-pool1[1, 9]
+vec <- rep(NA, 15)
 
 # t test for BB and CL
-t.test2(pool1[1, 2], pool1[2, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[2, 3]*sqrt(pool1[2, 9]), pool1[1, 9], pool1[2, 9])
+vec[1] <- t.test2(pool1[1, 2], pool1[2, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[2, 3]*sqrt(pool1[2, 9]), pool1[1, 9], pool1[2, 9])[5]
 
 # t test for BB and EC
-t.test2(pool1[1, 2], pool1[3, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[3, 3]*sqrt(pool1[3, 9]), pool1[1, 9], pool1[3, 9])
+vec[2] <- t.test2(pool1[1, 2], pool1[3, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[3, 3]*sqrt(pool1[3, 9]), pool1[1, 9], pool1[3, 9])[5]
 
 # t test for BB and JC
-t.test2(pool1[1, 2], pool1[4, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[4, 3]*sqrt(pool1[4, 9]), pool1[1, 9], pool1[4, 9])
+vec[3] <- t.test2(pool1[1, 2], pool1[4, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[4, 3]*sqrt(pool1[4, 9]), pool1[1, 9], pool1[4, 9])[5]
 
 # t test for BB and MP
-t.test2(pool1[1, 2], pool1[5, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[1, 9], pool1[5, 9])
+vec[4] <- t.test2(pool1[1, 2], pool1[5, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[1, 9], pool1[5, 9])[5]
 
 # t test for BB and NF
-t.test2(pool1[1, 2], pool1[6, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[1, 9], pool1[6, 9])
+vec[5] <- t.test2(pool1[1, 2], pool1[6, 2], pool1[1, 3]*sqrt(pool1[1, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[1, 9], pool1[6, 9])[5]
 
 # t test for CL and EC
-t.test2(pool1[2, 2], pool1[3, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[3, 3]*sqrt(pool1[3, 9]), pool1[2, 9], pool1[3, 9])
+vec[6] <- t.test2(pool1[2, 2], pool1[3, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[3, 3]*sqrt(pool1[3, 9]), pool1[2, 9], pool1[3, 9])[5]
 
 # t test for CL and JC
-t.test2(pool1[2, 2], pool1[4, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[4, 3]*sqrt(pool1[4, 9]), pool1[2, 9], pool1[4, 9])
+vec[7] <- t.test2(pool1[2, 2], pool1[4, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[4, 3]*sqrt(pool1[4, 9]), pool1[2, 9], pool1[4, 9])[5]
 
 # t test for CL and MP
-t.test2(pool1[2, 2], pool1[5, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[2, 9], pool1[5, 9])
+vec[8] <- t.test2(pool1[2, 2], pool1[5, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[2, 9], pool1[5, 9])[5]
 
 # t test for CL and NF
-t.test2(pool1[2, 2], pool1[6, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[2, 9], pool1[6, 9])
+vec[9] <- t.test2(pool1[2, 2], pool1[6, 2], pool1[2, 3]*sqrt(pool1[2, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[2, 9], pool1[6, 9])[5]
 
 # t test for EC and JC
-t.test2(pool1[3, 2], pool1[4, 2], pool1[3, 3]*sqrt(pool1[3, 9]), pool1[4, 3]*sqrt(pool1[4, 9]), pool1[3, 9], pool1[4, 9])
+vec[10] <- t.test2(pool1[3, 2], pool1[4, 2], pool1[3, 3]*sqrt(pool1[3, 9]), pool1[4, 3]*sqrt(pool1[4, 9]), pool1[3, 9], pool1[4, 9])[5]
 
 # t test for EC and MP
-t.test2(pool1[3, 2], pool1[5, 2], pool1[3, 3]*sqrt(pool1[3, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[3, 9], pool1[5, 9])
+vec[11] <- t.test2(pool1[3, 2], pool1[5, 2], pool1[3, 3]*sqrt(pool1[3, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[3, 9], pool1[5, 9])[5]
 
 # t test for EC and NF
-t.test2(pool1[3, 2], pool1[6, 2], pool1[3, 3]*sqrt(pool1[3, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[3, 9], pool1[6, 9])
+vec[12] <- t.test2(pool1[3, 2], pool1[6, 2], pool1[3, 3]*sqrt(pool1[3, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[3, 9], pool1[6, 9])[5]
 
 # t test for JC and MP
-t.test2(pool1[4, 2], pool1[5, 2], pool1[4, 3]*sqrt(pool1[4, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[4, 9], pool1[5, 9])
+vec[13] <- t.test2(pool1[4, 2], pool1[5, 2], pool1[4, 3]*sqrt(pool1[4, 9]), pool1[5, 3]*sqrt(pool1[5, 9]), pool1[4, 9], pool1[5, 9])[5]
 
 # t test for JC and NF
-t.test2(pool1[4, 2], pool1[6, 2], pool1[4, 3]*sqrt(pool1[4, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[4, 9], pool1[6, 9])
+vec[14] <- t.test2(pool1[4, 2], pool1[6, 2], pool1[4, 3]*sqrt(pool1[4, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[4, 9], pool1[6, 9])[5]
 
 # t test for MP and NF
-t.test2(pool1[5, 2], pool1[6, 2], pool1[5, 3]*sqrt(pool1[5, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[5, 9], pool1[6, 9])
+vec[15] <- t.test2(pool1[5, 2], pool1[6, 2], pool1[5, 3]*sqrt(pool1[5, 9]), pool1[6, 3]*sqrt(pool1[6, 9]), pool1[5, 9], pool1[6, 9])[5]
 
 # BB_CL, BB_EC, BB_JC, BB_MP, BB_NF, CL_EC, CL_JC, CL_MP, CL_NF, EC_JC, EC_MP, EC_NF, JC_MP, JC_NF, MP_NF
-p_values <- c(0.0144, 0.1530, 0.7236, 0.0613, 0.0012, 0.0001, 0.0515, 0.4953, 0.0519, 0.1041, 0.0182, 0.0001, 0.0933, 0.0028, 0.4543)
+p_values <- vec
 p_values.corr.fdr<-p.adjust(p_values, method = "fdr", n = length(p_values)) 
 p_values.corr.fdr
-# 0.0432000 0.1912500 0.7236000 0.1021667 0.0060000 0.0007500 0.0973125 0.5306786
-# 0.0973125 0.1419545 0.0455000 0.0007500 0.1399500 0.0105000 0.5241923
+#  [1] 0.0432930174 0.1948572203 0.7119988942 0.1058460773 0.0059727485 0.0009117642 0.0996143684
+#  [8] 0.5604343529 0.0996143684 0.1399044218 0.0459757611 0.0010730017 0.1399044218 0.0106130314
+# [15] 0.4803785786
 
 ```
 
@@ -643,9 +627,6 @@ tabasco(community, use = community.jmds, labCol = habitatN$Habitat, col = brewer
 ```
 
 ```{r UpSet}
-# install.packages("UpSetR")
-library(UpSetR)
-
 # In our case, Rows are OTUs, Columns are land-cover types (BB, EC, JC, MP, NF, CL). So this is pretty easy to make. 0/1 dataset
 comm4inext_abun <- as.data.frame(comm4inext_abun) # comm4inext_abun from iNEXT
 comm4inext_abun[comm4inext_abun>1] <- 1
@@ -653,12 +634,8 @@ colSums(comm4inext_abun)
 #sort(rowSums(comm4inext_abun))
 # upset(comm4inext_abun, nsets = 6, nintersects = 70, cutoff = 7, keep.order = TRUE)
 #upset(comm4inext_abun, sets = c("NF", "MP", "BB", "EC", "JC", "CL"), nintersects = 70, group.by = "sets", cutoff = 7, keep.order = TRUE)
+upset(comm4inext_abun, sets = c("NF", "MP", "BB", "EC", "JC", "CL"), cutoff = 6, nintersects = NA, group.by = "sets", keep.order = TRUE)
 upset(comm4inext_abun, sets = c("NF", "MP", "BB", "EC", "JC", "CL"), nintersects = NA, group.by = "sets", keep.order = TRUE)
-
-#upset(comm4inext_abun, sets = c("NF", "MP", "BB", "EC", "JC"), nintersects = 70, group.by = "sets", cutoff = 7, keep.order = TRUE) ## without CL
-upset(comm4inext_abun, sets = c("NF", "MP", "BB", "EC", "JC"), nintersects = 70, group.by = "sets", cutoff = 9, keep.order = TRUE) ## without CL
-upset(comm4inext_abun, sets = c("NF", "MP", "BB", "EC", "JC"), nintersects = 70, group.by = "sets", keep.order = TRUE) ## without CL
-
 ```
 
 ## Betapart analysis before removing zerotons and singletons
