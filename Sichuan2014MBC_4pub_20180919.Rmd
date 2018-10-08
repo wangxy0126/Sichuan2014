@@ -384,7 +384,7 @@ NF <- communityB %>% dplyr::filter(habitatN$Habitat %in% c("NF"))
 
 ```
 
-
+Test 2
 ```{r t-test for observed species richness}
 
 BB_obs <- rowSums(BB)
